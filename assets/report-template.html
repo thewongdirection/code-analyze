@@ -132,11 +132,12 @@
       <a href="#sys">5. System interaction surface</a><br>
       <a href="#netcrypto">6. Networking &amp; cryptography</a><br>
       <a href="#deps">7. Dependencies &amp; integrations</a><br>
-      <a href="#tree">8. Call tree</a><br>
-      <a href="#vulns">9. Potential vulnerabilities</a><br>
-      <a href="#repl">10. Replication &amp; feature-match</a><br>
-      <a href="#method">11. Methodology &amp; reproduction</a><br>
-      <a href="#conclusion">12. Conclusion</a>
+      <a href="#footprint">8. Operating footprint</a><br>
+      <a href="#tree">9. Call tree</a><br>
+      <a href="#vulns">10. Potential vulnerabilities</a><br>
+      <a href="#repl">11. Replication &amp; feature-match</a><br>
+      <a href="#method">12. Methodology &amp; reproduction</a><br>
+      <a href="#conclusion">13. Conclusion</a>
     </div>
   </div>
 
@@ -201,8 +202,24 @@
   <h2 id="deps">7. Dependencies &amp; Integrations</h2>
   <ul><!-- SLOT --><li>…</li></ul>
 
-  <!-- ================= 8. CALL TREE ================= -->
-  <h2 id="tree">8. Call Tree</h2>
+  <!-- ================= 8. OPERATING FOOTPRINT ================= -->
+  <h2 id="footprint">8. Operating Footprint</h2>
+  <p class="muted" style="font-size:13px">What this software looks like once deployed and running — artifacts on disk, runtime dependencies, and how to recognise it on a live system.</p>
+  <div class="grid2">
+    <div class="panel" style="margin:0"><h3>Files deployed</h3><ul class="clean">
+      <!-- SLOT: every artifact on disk + install location (exe, dlls/.so, config/data, models, installer) -->
+      <li>…</li>
+    </ul></div>
+    <div class="panel" style="margin:0"><h3>External libraries required</h3><ul class="clean">
+      <!-- SLOT: system libs / OS-provided vs must-install; language runtimes (.NET/Python/JVM/Node); third-party -->
+      <li>…</li>
+    </ul></div>
+  </div>
+  <p><b>Runtime identity:</b> <!-- SLOT: executable → probable process name (+ foreground/service), and named pipes / mutexes / events it creates. DLL/plugin/.so/extension → the probable HOST process that loads it (e.g. ida64.exe, python.exe, the browser). Say "probable" where inferring. --> …</p>
+  <p><b>Certificates, keys &amp; signatures:</b> <!-- SLOT: enumerate embedded/deployed cryptographic material — PEM/DER certificates, public/private keys, SSH keys, PGP blocks, JWTs, and cert/keystore files (.pem/.crt/.cer/.der/.pfx/.p12/.jks/.key/.pub/.asc/.gpg); note real/sensitive vs test/CA-bundle. State "none found" if so. --> …</p>
+
+  <!-- ================= 9. CALL TREE ================= -->
+  <h2 id="tree">9. Call Tree</h2>
   <p class="muted" style="font-size:13px">Static caller→callee hierarchy of the key functions, rooted at the entry point (IDA-style). Interactive in HTML — click a node to collapse its subtree, drag to pan, scroll to zoom. {{TREE_NOTE}}</p>
   <div class="tree-wrap">
     <div class="ct-btns"><button id="ct-expand">Expand all</button><button id="ct-collapse">Collapse all</button><button id="ct-fit">Fit</button></div>
@@ -210,16 +227,16 @@
     <div class="ct-legend" id="ct-legend"></div>
   </div>
 
-  <!-- ================= 9. VULNERABILITIES ================= -->
-  <h2 id="vulns">9. Potential Vulnerabilities</h2>
+  <!-- ================= 10. VULNERABILITIES ================= -->
+  <h2 id="vulns">10. Potential Vulnerabilities</h2>
   <p><b>Risk posture:</b> {{RISK_POSTURE}}</p>
   <table><thead><tr><th>Severity</th><th>Finding</th><th>Location</th><th>Why it matters</th></tr></thead><tbody>
     <!-- SLOT: one row per finding, worst first -->
     <tr><td><span class="sev-tag sev-info">INFO</span></td><td>finding</td><td><code>file:line</code></td><td>why</td></tr>
   </tbody></table>
 
-  <!-- ================= 10. REPLICATION ================= -->
-  <h2 id="repl">10. Replication &amp; Feature-Match Assessment</h2>
+  <!-- ================= 11. REPLICATION ================= -->
+  <h2 id="repl">11. Replication &amp; Feature-Match Assessment</h2>
   <p><span class="risk-badge risk-med">DIFFICULTY: {{REPL_DIFFICULTY}}</span> <span class="muted" style="font-size:13px">{{REPL_EFFORT}}</span></p>
   <div class="grid2">
     <div class="panel" style="margin:0"><h3 class="ok">Commodity</h3><ul class="clean"><!-- SLOT --><li>…</li></ul></div>
@@ -227,8 +244,8 @@
   </div>
   <p><b>Expertise:</b> {{REPL_EXPERTISE}} <b>Moat:</b> {{REPL_MOAT}}</p>
 
-  <!-- ================= 11. METHODOLOGY & REPRODUCTION ================= -->
-  <h2 id="method">11. Methodology &amp; Reproduction</h2>
+  <!-- ================= 12. METHODOLOGY & REPRODUCTION ================= -->
+  <h2 id="method">12. Methodology &amp; Reproduction</h2>
   <p>This is a <b>read-only static analysis</b>. The steps below let an engineer reproduce every measured figure and finding in this report from scratch.</p>
   <h3>Environment &amp; tools</h3>
   <ul>
@@ -242,8 +259,8 @@
   <h3>Build / verify the target (optional)</h3>
   <pre>{{BUILD_STEPS}}</pre>
 
-  <!-- ================= 12. CONCLUSION ================= -->
-  <h2 id="conclusion">12. Conclusion</h2>
+  <!-- ================= 13. CONCLUSION ================= -->
+  <h2 id="conclusion">13. Conclusion</h2>
   <p>{{CONCLUSION}}</p>
 
   <footer>Generated by the code-analyze skill · static, read-only source review · not a substitute for a full penetration test or dynamic analysis · {{DATE}}.</footer>
