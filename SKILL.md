@@ -115,9 +115,18 @@ Where crypto or networking is misused, the finding belongs in **both** this inve
 Produce **two** artifacts from the same analysis:
 
 1. A **structured Markdown report** — the authoritative writeup, saved as `CODE-ANALYSIS.md` (in the scratchpad, not inside the user's repo unless they ask). Print a condensed version in the chat.
-2. A **self-contained HTML dashboard** — a visual, at-a-glance summary of the same findings, saved as `CODE-ANALYSIS.html`. See "Dashboard" below.
+2. A **visual dashboard** — a glanceable summary of the same findings. It is authored as a **self-contained HTML file** (`CODE-ANALYSIS.html`); this can be delivered **as HTML, as PDF, or both**. See "Dashboard" below.
 
 Write the report first — it's where the thinking happens — then distill it into the dashboard. Don't invent dashboard content that isn't in the report; they must tell the same story.
+
+**Dashboard format (HTML vs PDF).** The HTML is always the source of truth — build it first. Then pick the delivery format from context:
+- Default to **HTML** — it's interactive, theme-aware, and opens anywhere.
+- Produce a **PDF** when the user asks for one, or when the deliverable is clearly for sharing/archiving/reporting (e.g. "send me a report", an audit hand-off). If unsure and the user said "pdf or html", give them both.
+- To make the PDF, render the *same* HTML with the bundled converter — never hand-build a separate PDF:
+  ```
+  python "<skill-dir>/scripts/html_to_pdf.py" <path>/CODE-ANALYSIS.html <path>/CODE-ANALYSIS.pdf
+  ```
+  It locates a headless Chrome/Edge/Chromium and prints the page to PDF (falling back to `weasyprint` if a browser isn't available). If neither backend exists, it says so — in that case deliver the HTML and tell the user to "Print → Save as PDF" from a browser, rather than faking a PDF. The template carries a `@media print` block so the PDF renders on a clean light background with panels kept intact across page breaks.
 
 ## Report structure
 
@@ -182,7 +191,7 @@ Populate it with the substance from the report, not filler:
 - **Findings table** — each security finding with severity chip, `file:line`, and a one-line why. Sort worst-first.
 - **Replication panel** — the difficulty rating and effort band up front, then a short "commodity vs. hard" split and the moat verdict. A single glanceable rating chip (Trivial→Very High) earns its place.
 
-Keep it information-dense but skimmable. When done, offer the HTML file to the user so they can open it.
+Keep it information-dense but skimmable. When done, deliver it in the chosen format(s) per "Dashboard format" above — offer the HTML file to open, and/or the rendered PDF — so the user gets something they can actually use.
 
 ## Scope & honesty
 

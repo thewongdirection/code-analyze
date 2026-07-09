@@ -14,7 +14,7 @@ structured Markdown report and a self-contained HTML dashboard.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
 - **Replication & feature-match assessment** — how hard the app would be to rebuild, what's commodity vs. differentiated, and whether there's any real moat.
-- **Two deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware `CODE-ANALYSIS.html` dashboard.
+- **Two deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard, delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift).
 
 ## Approach
 
@@ -30,7 +30,8 @@ it could not read.
 | `SKILL.md` | The skill definition and methodology. |
 | `scripts/scan_secrets.py` | Dependency-free regex sweep for secrets/credentials (a triage net, not a verdict). |
 | `scripts/count_loc.py` | Dependency-free per-language line-count metrics for the report/dashboard. |
-| `assets/dashboard-template.html` | Self-contained, theme-aware HTML dashboard skeleton. |
+| `scripts/html_to_pdf.py` | Renders the HTML dashboard to PDF via headless Chrome/Edge/Chromium (falls back to weasyprint). |
+| `assets/dashboard-template.html` | Self-contained, theme-aware HTML dashboard skeleton (with print/PDF styles). |
 
 ## Installation
 

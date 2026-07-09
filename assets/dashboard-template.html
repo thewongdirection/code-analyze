@@ -83,6 +83,22 @@
   .risk-med{background:var(--med);color:#111;}  .risk-low{background:var(--low);color:#fff;}
 
   footer{color:var(--muted);font-size:12px;margin-top:28px;text-align:center;}
+
+  /* Print / PDF: force the light palette, keep panels from splitting across pages,
+     and make severity colours survive the print pipeline. */
+  @media print{
+    :root{
+      --bg:#ffffff; --panel:#ffffff; --panel2:#f4f6f8; --border:#c9d1d9;
+      --fg:#111; --muted:#555; --chip:#eef1f4;
+    }
+    @page{ margin:14mm; }
+    body{ background:#fff; }
+    .wrap{ max-width:none; padding:0; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .hero,.panel,.tile,.pill{ break-inside:avoid; page-break-inside:avoid; }
+    tr,._nobreak{ break-inside:avoid; page-break-inside:avoid; }
+    a{ color:inherit; text-decoration:none; }
+  }
 </style>
 </head>
 <body>
