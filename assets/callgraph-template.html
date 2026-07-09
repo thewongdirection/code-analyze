@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<!--
+  code-analyze call-graph template.
+  Populate the GRAPH object below with the KEY functions (nodes) and the call
+  relationships you traced while reading (edges). Keep it self-contained: no CDNs.
+
+  Node schema:  { id:"unique", label:"display name", group:"entry|core|network|crypto|io|ui|util|external", weight:1..4, module:"path/file.py" }
+  Edge schema:  { from:"callerId", to:"calleeId" }   // direction = caller -> callee
+  Focus on the spine and security-relevant functions; a legible ~10-40 node graph
+  beats an unreadable dump of every function.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call Graph — {{PROJECT_NAME}}</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#2a3441; --fg:#e6edf3; --muted:#8b949e;
+    --edge:#5b6673; --edgehi:#e6edf3;
+    --g-entry:#f85149; --g-core:#58a6ff; --g-network:#ff9800; --g-crypto:#bc8cff;
+    --g-io:#3fb950; --g-ui:#39c5cf; --g-util:#8b949e; --g-external:#d4a72c;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f6f8fa; --panel:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#636c76;
+           --edge:#c0c7d0; --edgehi:#1f2328; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;
+    justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:17px;margin:0;}
+  header .sub{color:var(--muted);font-size:12px;}
+  #wrap{position:relative;height:calc(100% - 52px);min-height:520px;}
+  svg{width:100%;height:100%;display:block;cursor:grab;}
+  svg.panning{cursor:grabbing;}
+  .edge{stroke:var(--edge);stroke-width:1.2;marker-end:url(#arrow);opacity:.5;}
+  .edge.hi{stroke:var(--edgehi);opacity:1;stroke-width:1.8;}
+  .node circle{stroke:var(--panel);stroke-width:1.5;cursor:pointer;}
+  .node text{fill:var(--fg);font-size:11px;pointer-events:none;paint-order:stroke;
+    stroke:var(--bg);stroke-width:3px;stroke-linejoin:round;}
+  .node.dim{opacity:.15;}
+  .legend{position:absolute;top:12px;left:12px;background:var(--panel);
+    border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;}
+  .legend b{display:block;margin-bottom:4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10px;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;margin:2px 8px 2px 0;}
+  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
+  .hint{position:absolute;bottom:12px;left:12px;color:var(--muted);font-size:11px;
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:5px 8px;}
+  @media print{
+    :root{--bg:#fff;--panel:#fff;--fg:#111;--muted:#555;--edge:#999;}
+    .hint{display:none;} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    @page{margin:8mm;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Call Graph — {{PROJECT_NAME}}</h1>
+  <span class="sub">caller → callee · drag nodes · scroll to zoom · hover to trace</span>
+</header>
+<div id="wrap">
+  <svg id="svg"></svg>
+  <div class="legend" id="legend"><b>Function type</b></div>
+  <div class="hint">Hover a function to highlight what it calls and what calls it.</div>
+</div>
+<script>
+/* ------- data: replace GRAPH with the analyzed call graph ------- */
+const GRAPH = {
+  nodes: [
+    {id:"main", label:"main", group:"entry", weight:3, module:"app.py"},
+    {id:"parse", label:"parse_args", group:"core", weight:2, module:"app.py"},
+    {id:"run", label:"run", group:"core", weight:3, module:"core.py"},
+    {id:"load", label:"load_config", group:"io", weight:2, module:"config.py"},
+    {id:"fetch", label:"fetch", group:"network", weight:2, module:"net.py"},
+    {id:"enc", label:"encrypt", group:"crypto", weight:1, module:"crypto.py"},
+    {id:"write", label:"write_out", group:"io", weight:1, module:"io.py"},
+  ],
+  edges: [
+    {from:"main", to:"parse"}, {from:"main", to:"run"}, {from:"run", to:"load"},
+    {from:"run", to:"fetch"}, {from:"fetch", to:"enc"}, {from:"run", to:"write"},
+  ],
+};
+/* ---------------------------------------------------------------- */
+
+const GROUP_LABEL = {entry:"Entry point",core:"Core logic",network:"Networking",
+  crypto:"Cryptography",io:"File / I/O",ui:"UI",util:"Utility",external:"External / API"};
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const groupColor = g => cssVar("--g-"+g) || cssVar("--g-util");
+
+const svg = document.getElementById("svg");
+const NS = "http://www.w3.org/2000/svg";
+let W = svg.clientWidth || 1000, H = svg.clientHeight || 600;
+
+// defs (arrow marker)
+svg.innerHTML =
+  '<defs><marker id="arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="7" '+
+  'markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" '+
+  'fill="'+cssVar("--edge")+'"/></marker></defs>';
+const view = document.createElementNS(NS,"g"); svg.appendChild(view);
+const gEdges = document.createElementNS(NS,"g"); view.appendChild(gEdges);
+const gNodes = document.createElementNS(NS,"g"); view.appendChild(gNodes);
+
+const nodes = GRAPH.nodes.map((n,i)=>({...n,
+  x:W/2 + Math.cos(i/GRAPH.nodes.length*6.283)*Math.min(W,H)*0.3,
+  y:H/2 + Math.sin(i/GRAPH.nodes.length*6.283)*Math.min(W,H)*0.3, vx:0, vy:0, fixed:false}));
+const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
+const edges = GRAPH.edges.filter(e=>byId[e.from]&&byId[e.to])
+  .map(e=>({s:byId[e.from], t:byId[e.to]}));
+const deg = {}; edges.forEach(e=>{deg[e.s.id]=(deg[e.s.id]||0)+1; deg[e.t.id]=(deg[e.t.id]||0)+1;});
+const neigh = {}; nodes.forEach(n=>neigh[n.id]=new Set([n.id]));
+edges.forEach(e=>{neigh[e.s.id].add(e.t.id); neigh[e.t.id].add(e.s.id);});
+
+const radius = n => 7 + (n.weight||1)*3 + Math.min((deg[n.id]||0),6);
+
+// build DOM
+const edgeEls = edges.map(e=>{ const l=document.createElementNS(NS,"line");
+  l.setAttribute("class","edge"); gEdges.appendChild(l); return l; });
+const nodeEls = nodes.map(n=>{
+  const g=document.createElementNS(NS,"g"); g.setAttribute("class","node");
+  const c=document.createElementNS(NS,"circle"); c.setAttribute("r",radius(n));
+  c.setAttribute("fill",groupColor(n.group));
+  const t=document.createElementNS(NS,"text"); t.setAttribute("x",radius(n)+3);
+  t.setAttribute("y",4); t.textContent=n.label;
+  const title=document.createElementNS(NS,"title");
+  title.textContent=n.label+(n.module?"  ·  "+n.module:"")+"  ·  "+(GROUP_LABEL[n.group]||n.group);
+  g.appendChild(c); g.appendChild(t); g.appendChild(title); gNodes.appendChild(g);
+  g._node=n; return g;
+});
+
+// legend
+const usedGroups=[...new Set(nodes.map(n=>n.group))];
+const legend=document.getElementById("legend");
+usedGroups.forEach(g=>{ const s=document.createElement("span");
+  s.innerHTML='<i style="background:'+groupColor(g)+'"></i>'+(GROUP_LABEL[g]||g);
+  legend.appendChild(s); });
+
+// ---- force simulation ----
+const REPULSE=9000, SPRING=0.02, LINK=90, GRAV=0.02; let alpha=1;
+function step(){
+  for(const n of nodes){ n.vx=(n.vx||0)*0.85; n.vy=(n.vy||0)*0.85; }
+  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+    const a=nodes[i],b=nodes[j]; let dx=b.x-a.x,dy=b.y-a.y; let d2=dx*dx+dy*dy||0.01;
+    const f=REPULSE/d2; const d=Math.sqrt(d2); const fx=dx/d*f, fy=dy/d*f;
+    a.vx-=fx; a.vy-=fy; b.vx+=fx; b.vy+=fy;
+  }
+  for(const e of edges){ let dx=e.t.x-e.s.x,dy=e.t.y-e.s.y; const d=Math.sqrt(dx*dx+dy*dy)||0.01;
+    const f=(d-LINK)*SPRING; const fx=dx/d*f, fy=dy/d*f;
+    e.s.vx+=fx; e.s.vy+=fy; e.t.vx-=fx; e.t.vy-=fy; }
+  for(const n of nodes){ n.vx+=(W/2-n.x)*GRAV*alpha; n.vy+=(H/2-n.y)*GRAV*alpha;
+    if(!n.fixed){ n.x+=Math.max(-30,Math.min(30,n.vx*alpha)); n.y+=Math.max(-30,Math.min(30,n.vy*alpha)); } }
+  if(alpha>0.05) alpha*=0.985;
+}
+function render(){
+  edgeEls.forEach((l,i)=>{ const e=edges[i];
+    l.setAttribute("x1",e.s.x); l.setAttribute("y1",e.s.y);
+    l.setAttribute("x2",e.t.x); l.setAttribute("y2",e.t.y); });
+  nodeEls.forEach(g=>g.setAttribute("transform","translate("+g._node.x+","+g._node.y+")"));
+}
+// pre-settle so a static capture (e.g. PDF) already looks laid out
+for(let i=0;i<400;i++) step();
+render();
+(function loop(){ step(); render(); requestAnimationFrame(loop); })();
+
+// ---- hover highlight ----
+nodeEls.forEach(g=>{
+  g.addEventListener("mouseenter",()=>{ const id=g._node.id;
+    nodeEls.forEach(o=>o.classList.toggle("dim",!neigh[id].has(o._node.id)));
+    edgeEls.forEach((l,i)=>l.classList.toggle("hi", edges[i].s.id===id||edges[i].t.id===id)); });
+  g.addEventListener("mouseleave",()=>{ nodeEls.forEach(o=>o.classList.remove("dim"));
+    edgeEls.forEach(l=>l.classList.remove("hi")); });
+});
+
+// ---- drag nodes + pan/zoom ----
+let scale=1, tx=0, ty=0, dragNode=null, panning=false, sx=0, sy=0;
+function applyView(){ view.setAttribute("transform","translate("+tx+","+ty+") scale("+scale+")"); }
+function toGraph(evt){ const r=svg.getBoundingClientRect();
+  return {x:(evt.clientX-r.left-tx)/scale, y:(evt.clientY-r.top-ty)/scale}; }
+nodeEls.forEach(g=>g.addEventListener("mousedown",e=>{ dragNode=g._node; dragNode.fixed=true; e.stopPropagation(); }));
+svg.addEventListener("mousedown",e=>{ if(!dragNode){ panning=true; svg.classList.add("panning"); sx=e.clientX-tx; sy=e.clientY-ty; }});
+window.addEventListener("mousemove",e=>{ if(dragNode){ const p=toGraph(e); dragNode.x=p.x; dragNode.y=p.y; alpha=Math.max(alpha,0.3); }
+  else if(panning){ tx=e.clientX-sx; ty=e.clientY-sy; applyView(); }});
+window.addEventListener("mouseup",()=>{ if(dragNode) dragNode.fixed=false; dragNode=null; panning=false; svg.classList.remove("panning"); });
+svg.addEventListener("wheel",e=>{ e.preventDefault(); const r=svg.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top; const k=e.deltaY<0?1.1:0.9;
+  const nx=mx-(mx-tx)*k, ny=my-(my-ty)*k; scale*=k; tx=nx; ty=ny; applyView(); },{passive:false});
+
+window.addEventListener("resize",()=>{ W=svg.clientWidth; H=svg.clientHeight; alpha=Math.max(alpha,0.3); });
+</script>
+</body>
+</html>

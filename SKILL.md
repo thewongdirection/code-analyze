@@ -1,6 +1,6 @@
 ---
 name: code-analyze
-description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and assesses how hard the app would be to replicate or feature-match. Deliver both a structured Markdown report and a self-contained HTML dashboard. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
+description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and assesses how hard the app would be to replicate or feature-match. Deliver a structured Markdown report and a self-contained HTML/PDF dashboard, plus an optional interactive function call graph. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
 ---
 
 # Code Analyze
@@ -117,6 +117,8 @@ Produce **two** artifacts from the same analysis:
 1. A **structured Markdown report** — the authoritative writeup, saved as `CODE-ANALYSIS.md` (in the scratchpad, not inside the user's repo unless they ask). Print a condensed version in the chat.
 2. A **visual dashboard** — a glanceable summary of the same findings. It is authored as a **self-contained HTML file** (`CODE-ANALYSIS.html`); this can be delivered **as HTML, as PDF, or both**. See "Dashboard" below.
 
+Optionally, a **third artifact — an interactive function call graph** (`CODE-ANALYSIS-callgraph.html`) — when the interrelationships between functions are worth seeing visually. See "Call graph (optional)" below.
+
 Write the report first — it's where the thinking happens — then distill it into the dashboard. Don't invent dashboard content that isn't in the report; they must tell the same story.
 
 **Dashboard format (HTML vs PDF).** The HTML is always the source of truth — build it first. Then pick the delivery format from context:
@@ -192,6 +194,20 @@ Populate it with the substance from the report, not filler:
 - **Replication panel** — the difficulty rating and effort band up front, then a short "commodity vs. hard" split and the moat verdict. A single glanceable rating chip (Trivial→Very High) earns its place.
 
 Keep it information-dense but skimmable. When done, deliver it in the chosen format(s) per "Dashboard format" above — offer the HTML file to open, and/or the rendered PDF — so the user gets something they can actually use.
+
+## Call graph (optional)
+
+A function call graph makes the *interrelationships* between key functions visible — how control flows from the entry point through the core logic into I/O, network, and crypto. Produce one when the user asks for it, or when it genuinely aids understanding: non-trivial control flow, a "how does this fit together?" question, or a codebase whose value is in how its pieces interact. Skip it for a flat 200-line utility where the prose already says it all.
+
+Because this skill is **read-only static analysis** (never execute the target), the graph is built from **static call relationships you traced while reading** — who calls whom — not from runtime tracing. It's rendered as a bundled interactive visualization so it *behaves* dynamically (force-directed auto-layout, drag, zoom, hover-to-trace), which is what "dynamic call graph" means here.
+
+How to build it:
+1. From your reading, pick the **key functions** — the spine and the security-relevant ones (entry points, dispatchers, request/auth handlers, network/crypto/file I/O, the functions that appear in findings). Aim for a legible graph of roughly **10–40 nodes**; a hairball of every function helps no one. Use grep/AST to confirm edges you're unsure of rather than guessing.
+2. Copy `assets/callgraph-template.html` to `<scratchpad>/CODE-ANALYSIS-callgraph.html` and replace the demo `GRAPH` object with the real nodes and edges. Node schema: `{id, label, group, weight, module}` where `group` is one of `entry|core|network|crypto|io|ui|util|external` (drives colour) and `weight` 1–4 (drives size); edge schema: `{from, to}` with direction **caller → callee**. Set the `{{PROJECT_NAME}}` title.
+3. It's self-contained (inline JS, no CDN) and theme-aware, and carries print styles, so it exports to PDF via the same converter:
+   `python "<skill-dir>/scripts/html_to_pdf.py" <path>/CODE-ANALYSIS-callgraph.html <path>/CODE-ANALYSIS-callgraph.pdf`
+
+Grounding matters: every edge should be a call you actually saw in the source. A smaller graph you can vouch for is far better than a large speculative one.
 
 ## Scope & honesty
 

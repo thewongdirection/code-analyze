@@ -14,7 +14,7 @@ structured Markdown report and a self-contained HTML dashboard.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
 - **Replication & feature-match assessment** — how hard the app would be to rebuild, what's commodity vs. differentiated, and whether there's any real moat.
-- **Two deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard, delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift).
+- **Deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift), plus an **optional interactive function call graph** (force-directed, drag/zoom/hover-to-trace) showing how the key functions interrelate.
 
 ## Approach
 
@@ -32,6 +32,7 @@ it could not read.
 | `scripts/count_loc.py` | Dependency-free per-language line-count metrics for the report/dashboard. |
 | `scripts/html_to_pdf.py` | Renders the HTML dashboard to PDF via headless Chrome/Edge/Chromium (falls back to weasyprint). |
 | `assets/dashboard-template.html` | Self-contained, theme-aware HTML dashboard skeleton (with print/PDF styles). |
+| `assets/callgraph-template.html` | Self-contained interactive force-directed call-graph skeleton (drag/zoom/hover, print/PDF styles). |
 
 ## Installation
 
