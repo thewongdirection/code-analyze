@@ -1,0 +1,7 @@
+# Skill run outputs / scratch (never committed)
+*-workspace/
+code-analyze/
+CODE-ANALYSIS.md
+CODE-ANALYSIS.html
+__pycache__/
+*.pyc
