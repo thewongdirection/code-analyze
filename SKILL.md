@@ -1,6 +1,6 @@
 ---
 name: code-analyze
-description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and assesses how hard the app would be to replicate or feature-match. Deliver a structured Markdown report and a self-contained HTML/PDF dashboard, plus an optional interactive function call graph. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
+description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and assesses how hard the app would be to replicate or feature-match. Deliver everything as a single professional evaluation report — one self-contained HTML plus a matching PDF — collating the findings, an embedded interactive call tree, and a methodology/reproduction appendix. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
 ---
 
 # Code Analyze
@@ -112,33 +112,29 @@ Where crypto or networking is misused, the finding belongs in **both** this inve
 
 ## Deliverables
 
-Produce **two** artifacts from the same analysis:
+The deliverable is **one single, self-contained HTML evaluation report and one matching PDF** — nothing else. Everything collates into that one document: the executive summary, metrics, architecture, capabilities, system-interaction surface, networking/crypto, dependencies, the interactive call tree, the findings table, the replication assessment, and a methodology/reproduction appendix. Do **not** ship a scattering of separate dashboard / call-graph / markdown files as the deliverable — one report, one PDF.
 
-1. A **structured Markdown report** — the authoritative writeup, saved as `CODE-ANALYSIS.md` (in the scratchpad, not inside the user's repo unless they ask). Print a condensed version in the chat.
-2. A **visual dashboard** — a glanceable summary of the same findings. It is authored as a **self-contained HTML file** (`CODE-ANALYSIS.html`); this can be delivered **as HTML, as PDF, or both**. See "Dashboard" below.
-
-Optionally, a **third artifact — an interactive function call graph** (`CODE-ANALYSIS-callgraph.html`) — when the interrelationships between functions are worth seeing visually. See "Call graph (optional)" below.
-
-Write the report first — it's where the thinking happens — then distill it into the dashboard. Don't invent dashboard content that isn't in the report; they must tell the same story.
-
-**Dashboard format (HTML vs PDF).** The HTML is always the source of truth — build it first. Then pick the delivery format from context:
-- Default to **HTML** — it's interactive, theme-aware, and opens anywhere.
-- Produce a **PDF** when the user asks for one, or when the deliverable is clearly for sharing/archiving/reporting (e.g. "send me a report", an audit hand-off). If unsure and the user said "pdf or html", give them both.
-- To make the PDF, render the *same* HTML with the bundled converter — never hand-build a separate PDF:
+- **Build the single HTML from the bundled scaffold** `assets/report-template.html`. It already contains the styling, the section skeleton (with a table of contents), the embedded interactive **call tree** engine, and a **Methodology & Reproduction** appendix. Fill every `{{PLACEHOLDER}}` and `<!-- SLOT -->` with the real analysis, and replace the call-tree `GRAPH` object with the functions/edges you traced. Save as `CODE-ANALYSIS.html`.
+- **Render the matching PDF from that exact HTML** — never hand-build a separate PDF, so the two can never disagree:
   ```
   python "<skill-dir>/scripts/html_to_pdf.py" <path>/CODE-ANALYSIS.html <path>/CODE-ANALYSIS.pdf
   ```
-  It locates a headless Chrome/Edge/Chromium and prints the page to PDF (falling back to `weasyprint` if a browser isn't available). If neither backend exists, it says so — in that case deliver the HTML and tell the user to "Print → Save as PDF" from a browser, rather than faking a PDF. The template carries a `@media print` block so the PDF renders on a clean light background with panels kept intact across page breaks.
+  It uses headless Chrome/Edge/Chromium (falls back to `weasyprint`); if neither exists it says so — then deliver the HTML and tell the user to "Print → Save as PDF". The template's `@media print` rules give a clean light PDF with sections kept intact across page breaks.
+- **Frame it as a professional evaluation** and make it **reproducible**: the Methodology & Reproduction section must give an engineer enough to re-derive every number and finding — the environment, the exact commands (`count_loc.py`, `scan_secrets.py`, how the code was obtained), the coverage (which files were read in full), and how to build/verify the target if applicable. Measured figures come from the tools, not estimates.
+
+You may still keep a **Markdown working note** (`CODE-ANALYSIS.md`) as an internal scratchpad for your own thinking, and print a condensed summary in the chat — but the thing you deliver is the single HTML + its PDF. (The older standalone `dashboard-template.html` and `callgraph-template.html` remain in `assets/` as components, but the consolidated `report-template.html` is what you ship.)
 
 ## Report structure
 
-Use this structure for the Markdown report:
+The single HTML report collates the sections below (they map to the scaffold in `report-template.html`). Author them as report prose/tables, not as a terse dashboard:
 
 ```
-# Code Analysis: <project name>
+Code Evaluation: <project name>   (cover: risk badge, severity counts, source, coverage, date)
 
-## Overview
-One tight paragraph: what the project is, its primary language/stack, its maturity, and what it's for. Include the repo source (URL/path) and roughly how much of it you reviewed.
+1. Executive summary — what it is, overall risk, the one thing to act on.
+
+## Overview & metrics
+Measured file/LOC/language counts and dependency/secret-hit counts; one tight paragraph of what the project is and how much was reviewed.
 
 ## Architecture & Key Artifacts
 How the project is organized and how it runs. Entry points, core modules, the notable files a new engineer must know, build/deploy setup. A short directory-level orientation is welcome. Reference real paths.
@@ -183,43 +179,37 @@ An engineer's estimate of how hard it would be to rebuild this app or match its 
   - **Expertise required** — the specific skills a cloner needs (e.g. "WASAPI/COM internals", "distributed systems", "ML"), since rare expertise is itself a moat.
   - **Moat** — is there anything that actually prevents replication (network effects, data, patents, secret sauce), or is the barrier purely effort and know-how? Base this on the code, and be honest: many apps are mostly commodity glue, and saying so is the useful answer.
 
-## Summary
-A few sentences: overall assessment, the single most important thing the user should act on, and honest caveats about coverage.
+## Call Tree
+The embedded interactive call tree (see "The call tree" below) plus one sentence orienting the reader to it.
+
+## Methodology & Reproduction
+Enough for an engineer to re-derive every number and finding: the environment, the bundled tools used, the **exact commands** run (obtaining the code, `count_loc.py`, `scan_secrets.py`), the **coverage** (which files were read in full, what was excluded), and how to **build/verify the target** if it compiles or runs. This section is what makes the report a professional, reproducible evaluation rather than an opinion.
+
+## Conclusion
+A few sentences: overall assessment, the single most important thing to act on, and honest caveats about coverage.
 ```
 
 Adapt the depth to the repo — a 200-line utility doesn't need the same ceremony as a monorepo — but keep the section order so the security content is always in the same, findable place.
 
-## Dashboard
+## Building the report
 
-The dashboard is the report made glanceable — someone should grasp the project's shape, its risk posture, and its network/crypto surface in ten seconds without reading prose. A starter template is bundled at `assets/dashboard-template.html`; read it and fill in the marked slots rather than building from scratch, so every analysis produces a consistent-looking artifact.
+Fill `assets/report-template.html` and save it as `CODE-ANALYSIS.html`. It is one professional evaluation document — a cover band (project, risk badge, severity counts, source, coverage, date), a table of contents, and the twelve sections above, all self-contained (inline CSS/JS, no CDNs), theme-aware, and print-styled.
 
-Non-negotiables that make the dashboard actually work:
-- **Fully self-contained.** Inline all CSS and JS; no CDNs, web fonts, or external images. It must open correctly from a local file with no network. This matters because the dashboard often summarizes offline/air-gapped or sensitive code.
-- **Theme-aware and responsive** — readable in light and dark, and it shouldn't break on a narrow window.
-- **Lead with risk.** A header band showing the project name, one-line risk posture, and a colored severity summary (counts of Critical/High/Medium/Low). Red/amber/green must track severity so the eye lands on the worst thing first.
+Non-negotiables:
+- **Fully self-contained** — inline everything; it must open from a local file with no network (these reports often cover offline/air-gapped or sensitive code).
+- **Lead with risk** — the cover carries the one-line risk posture and the colored Critical/High/Medium/Low counts, so the eye lands on the worst thing first.
+- **Measured, not eyeballed** — file/LOC/language counts come from `count_loc.py`; secret-hit count from `scan_secrets.py`. Include the per-language breakdown.
+- **Substance over filler** — real capabilities framed by mechanism, real findings with `file:line`, real reproduction commands. This is an evaluation an engineer will act on.
 
-Populate it with the substance from the report, not filler:
-- **Metric tiles** — use the real figures from `count_loc.py` (file count, language count, total code lines) plus the dependency count and the headline finding counts. A per-language LOC breakdown (a small row of chips or a mini-table) is a good, cheap addition since the script already computes it.
-- **Capabilities** — the handful of things the project can actually do.
-- **Networking & Cryptography panel** — the endpoints/ports/protocols and the crypto primitives, as compact lists or chips. This is a headline panel, not a footnote. Include the **network signatures / IOCs** (or host-based signatures if there's no network) here.
-- **Findings table** — each security finding with severity chip, `file:line`, and a one-line why. Sort worst-first.
-- **Replication panel** — the difficulty rating and effort band up front, then a short "commodity vs. hard" split and the moat verdict. A single glanceable rating chip (Trivial→Very High) earns its place.
+### The call tree
 
-Keep it information-dense but skimmable. When done, deliver it in the chosen format(s) per "Dashboard format" above — offer the HTML file to open, and/or the rendered PDF — so the user gets something they can actually use.
+The report embeds an interactive **hierarchical call tree**, laid out horizontally like a debugger/disassembler (e.g. IDA Pro): the entry point on the left, callees expanding right through elbow connectors, each node's subtree collapsible by clicking, pan/zoom/Fit. Because this skill is **read-only static analysis** (never execute the target), it is built from **static call relationships you traced while reading** — who calls whom — not runtime tracing.
 
-## Call graph (optional)
+Populate its `GRAPH` object (inside the report's embedded `<script>`): node schema `{id, label, group, weight, module}` where `group` ∈ `entry|core|network|crypto|io|ui|util|external` (drives colour) and `weight` 1–4; edge schema `{from, to}` with direction **caller → callee**; set `root` to the entry point. Pick the **key functions** — not just security-relevant ones, but the core functions behind every essential capability and system interaction: entry points/dispatchers, and whatever does **networking**, **registry/system modification**, **file access**, **process/OS control**, **sensitive-system access**, and **crypto**, plus anything in the findings. Aim for a legible **10–40 nodes**; every edge must be a call you actually saw in the source — a smaller tree you can vouch for beats a large speculative one.
 
-A function call graph makes the *interrelationships* between key functions visible — how control flows from the entry point through the core logic into I/O, network, and crypto. Produce one when the user asks for it, or when it genuinely aids understanding: non-trivial control flow, a "how does this fit together?" question, or a codebase whose value is in how its pieces interact. Skip it for a flat 200-line utility where the prose already says it all.
+### Then render and deliver
 
-Because this skill is **read-only static analysis** (never execute the target), the graph is built from **static call relationships you traced while reading** — who calls whom — not from runtime tracing. It's rendered as a bundled interactive **hierarchical call tree**, laid out horizontally in the style of a debugger/disassembler (e.g. IDA Pro): the entry point sits on the left and callees expand to the right through elbow connectors, and each node's subtree can be collapsed/expanded by clicking it. Pan by dragging, zoom by scrolling, "Fit" to reframe. This is what "dynamic call graph" means here — it *behaves* interactively; the data itself is static.
-
-How to build it:
-1. From your reading, pick the **key functions** — not just the security-relevant ones, but the core functions behind the app's essential capabilities. Include: entry points and dispatchers; the functions that do **networking**, **system/registry modification**, **file access**, **process/OS control**, and **sensitive-system access** (mic/camera/keystrokes/credentials/etc.); crypto; and anything that appears in findings. Colour them by `group` so the graph doubles as a map of how the program touches the system. Aim for a legible graph of roughly **10–40 nodes**; a hairball of every function helps no one. Use grep/AST to confirm edges you're unsure of rather than guessing.
-2. Copy `assets/callgraph-template.html` to `<scratchpad>/CODE-ANALYSIS-callgraph.html` and replace the demo `GRAPH` object with the real nodes and edges. Node schema: `{id, label, group, weight, module}` where `group` is one of `entry|core|network|crypto|io|ui|util|external` (drives colour) and `weight` 1–4 (drives size); edge schema: `{from, to}` with direction **caller → callee**. Set the `{{PROJECT_NAME}}` title.
-3. It's self-contained (inline JS, no CDN) and theme-aware, and carries print styles, so it exports to PDF via the same converter:
-   `python "<skill-dir>/scripts/html_to_pdf.py" <path>/CODE-ANALYSIS-callgraph.html <path>/CODE-ANALYSIS-callgraph.pdf`
-
-Grounding matters: every edge should be a call you actually saw in the source. A smaller graph you can vouch for is far better than a large speculative one.
+Render the PDF from the finished HTML (`html_to_pdf.py`, above), verify it produced pages, then deliver **both files** — the interactive `CODE-ANALYSIS.html` and the matching `CODE-ANALYSIS.pdf` — and print a short summary in the chat.
 
 ## Scope & honesty
 

@@ -4,8 +4,8 @@ A [Claude](https://claude.com/claude-code) skill for **whole-codebase analysis a
 
 Point it at a GitHub repository (URL) or a local checkout and it acts as a senior
 software engineer, code reviewer, and cybersecurity specialist: it reads the code,
-explains what the project is and what it can actually do, and produces both a
-structured Markdown report and a self-contained HTML dashboard.
+explains what the project is and what it can actually do, and produces a single
+professional evaluation report — one self-contained HTML plus a matching PDF.
 
 ## What it produces
 
@@ -14,7 +14,7 @@ structured Markdown report and a self-contained HTML dashboard.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
 - **Replication & feature-match assessment** — how hard the app would be to rebuild, what's commodity vs. differentiated, and whether there's any real moat.
-- **Deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift), plus an **optional interactive function call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees) showing how the key functions call each other.
+- **Single deliverable** — one self-contained **HTML evaluation report** and a **matching PDF** rendered from it (so they never drift). Everything collates into that one document: executive summary, metrics, architecture, capabilities (framed by the API set that implements them), system-interaction surface, networking/crypto, findings, replication assessment, a **methodology & reproduction appendix**, and an **embedded interactive call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees).
 
 ## Approach
 
@@ -29,10 +29,11 @@ it could not read.
 |------|---------|
 | `SKILL.md` | The skill definition and methodology. |
 | `scripts/scan_secrets.py` | Dependency-free regex sweep for secrets/credentials (a triage net, not a verdict). |
-| `scripts/count_loc.py` | Dependency-free per-language line-count metrics for the report/dashboard. |
-| `scripts/html_to_pdf.py` | Renders the HTML dashboard to PDF via headless Chrome/Edge/Chromium (falls back to weasyprint). |
-| `assets/dashboard-template.html` | Self-contained, theme-aware HTML dashboard skeleton (with print/PDF styles). |
-| `assets/callgraph-template.html` | Self-contained interactive force-directed call-graph skeleton (drag/zoom/hover, print/PDF styles). |
+| `scripts/count_loc.py` | Dependency-free per-language line-count metrics for the report. |
+| `scripts/html_to_pdf.py` | Renders the HTML report to a matching PDF via headless Chrome/Edge/Chromium (falls back to weasyprint). |
+| `assets/report-template.html` | **The consolidated evaluation-report scaffold** — cover, all sections, embedded call tree, and reproduction appendix, in one self-contained file. |
+| `assets/dashboard-template.html` | Standalone dashboard skeleton (a component; the report template supersedes it as the deliverable). |
+| `assets/callgraph-template.html` | Standalone IDA-style call-tree skeleton (a component; also embedded in the report template). |
 
 ## Installation
 

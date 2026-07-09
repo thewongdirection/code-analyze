@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<!--
+  code-analyze — SINGLE consolidated evaluation report.
+  This one self-contained HTML collates the entire analysis (summary, metrics,
+  architecture, capabilities, system interaction, networking/crypto, findings,
+  replication, an embedded interactive call tree, and a reproduction appendix).
+  Render it to ONE matching PDF with scripts/html_to_pdf.py.
+
+  Fill every {{PLACEHOLDER}} and the marked SLOT regions, and replace the CALLTREE
+  GRAPH object near the bottom. Keep it self-contained: inline everything, no CDNs.
+  The report is the deliverable; the Markdown writeup (if kept) is an internal note.
+  (Note: do not put an HTML comment inside this one — comments do not nest.)
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Evaluation — {{PROJECT_NAME}}</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2a3441; --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff;
+    --crit:#f85149; --high:#ff9800; --med:#d4a72c; --low:#3fb950; --info:#58a6ff; --chip:#21262d;
+    --link:#5b6673; --linkhi:#e6edf3; --nodebg:#1c2330; --nodebghi:#2a3546;
+    --g-entry:#f85149; --g-core:#58a6ff; --g-network:#ff9800; --g-crypto:#bc8cff;
+    --g-io:#3fb950; --g-ui:#39c5cf; --g-util:#8b949e; --g-external:#d4a72c;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f6; --border:#d0d7de; --fg:#1f2328; --muted:#636c76; --accent:#0969da; --chip:#eaeef2;
+      --crit:#cf222e; --high:#bc4c00; --med:#9a6700; --low:#1a7f37; --info:#0969da;
+      --link:#b0b8c1; --linkhi:#1f2328; --nodebg:#fff; --nodebghi:#eef2f6; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 64px;}
+  h1{font-size:24px;margin:0;}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:34px 0 12px;font-weight:700;
+    border-bottom:1px solid var(--border);padding-bottom:6px;}
+  h3{font-size:15px;margin:18px 0 6px;}
+  p{margin:0 0 11px;} ul{margin:0 0 11px;padding-left:18px;} li{margin:3px 0;}
+  a{color:var(--accent);}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  code{font-size:.88em;background:var(--chip);padding:1px 5px;border-radius:4px;}
+  pre{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:12.5px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:16px;}
+  .muted{color:var(--muted);}
+
+  /* Cover band */
+  .hero{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-bottom:14px;
+    display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;}
+  .hero .kicker{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;}
+  .hero .meta{color:var(--muted);font-size:12.5px;margin-top:8px;line-height:1.7;}
+  .risk-badge{display:inline-block;padding:6px 14px;border-radius:999px;font-weight:700;font-size:13px;letter-spacing:.03em;}
+  .risk-crit{background:var(--crit);color:#fff;} .risk-high{background:var(--high);color:#fff;}
+  .risk-med{background:var(--med);color:#111;} .risk-low{background:var(--low);color:#fff;}
+  .sevrow{display:flex;gap:10px;flex-wrap:wrap;}
+  .pill{display:flex;flex-direction:column;align-items:center;min-width:70px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);}
+  .pill b{font-size:22px;line-height:1;} .pill span{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px;}
+
+  .toc{columns:2;font-size:13px;color:var(--muted);} .toc a{color:var(--muted);text-decoration:none;} .toc a:hover{color:var(--accent);}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px;}
+  .tile{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .tile b{font-size:23px;display:block;} .tile span{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:760px){.grid2{grid-template-columns:1fr;} .toc{columns:1;}}
+  ul.clean{list-style:none;padding:0;margin:0;} ul.clean li{padding:6px 0;border-bottom:1px solid var(--border);} ul.clean li:last-child{border-bottom:none;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;} .chip{background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:12.5px;}
+  .ok{color:var(--low);font-weight:600;} .warn{color:var(--high);font-weight:600;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--border);}
+  td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;} tr:last-child td{border-bottom:none;}
+  .sev-tag{display:inline-block;padding:2px 9px;border-radius:6px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;}
+  .sev-crit{background:var(--crit);} .sev-high{background:var(--high);} .sev-med{background:var(--med);color:#111;} .sev-low{background:var(--low);} .sev-info{background:var(--info);}
+
+  /* Embedded call tree */
+  .tree-wrap{position:relative;height:560px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--panel);}
+  #ct-svg{width:100%;height:100%;display:block;cursor:grab;} #ct-svg.panning{cursor:grabbing;}
+  .ct-btns{position:absolute;top:10px;right:10px;z-index:2;}
+  .ct-btns button{background:var(--panel2);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11.5px;cursor:pointer;margin-left:5px;}
+  .ct-legend{position:absolute;bottom:10px;left:10px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:7px 9px;font-size:11px;max-width:70%;}
+  .ct-legend span{display:inline-flex;align-items:center;gap:5px;margin:2px 8px 2px 0;} .ct-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .link{fill:none;stroke:var(--link);stroke-width:1.3;} .link.hi{stroke:var(--linkhi);stroke-width:2;}
+  .nodebox{fill:var(--nodebg);stroke:var(--border);stroke-width:1;cursor:pointer;} .node.hi .nodebox{fill:var(--nodebghi);stroke:var(--linkhi);}
+  .nlabel{fill:var(--fg);font-size:12px;dominant-baseline:middle;pointer-events:none;}
+  .caret{fill:var(--panel);stroke:var(--muted);stroke-width:1;cursor:pointer;}
+  .caretsign{fill:var(--muted);font-size:12px;text-anchor:middle;dominant-baseline:central;pointer-events:none;font-weight:700;}
+
+  footer{color:var(--muted);font-size:12px;margin-top:32px;text-align:center;border-top:1px solid var(--border);padding-top:14px;}
+
+  @media print{
+    :root{--bg:#fff;--panel:#fff;--panel2:#f4f6f8;--border:#c9d1d9;--fg:#111;--muted:#555;--chip:#eef1f4;--nodebg:#fff;--link:#999;}
+    @page{margin:14mm;} body{background:#fff;} .wrap{max-width:none;padding:0;}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .hero,.panel,.tile,.pill,tr,.tree-wrap{break-inside:avoid;page-break-inside:avoid;}
+    h2{break-after:avoid;} .ct-btns{display:none;} .tree-wrap{height:520px;}
+    a{color:inherit;text-decoration:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= COVER ================= -->
+  <div class="hero">
+    <div>
+      <div class="kicker">Code Evaluation Report</div>
+      <h1>{{PROJECT_NAME}}</h1>
+      <div style="margin-top:12px"><span class="risk-badge risk-{{RISK_CLASS}}">RISK: {{RISK_LEVEL}}</span></div>
+      <div class="meta">
+        Source: <code>{{REPO_SOURCE}}</code><br>
+        Stack: {{STACK}} · {{LOC}} LOC across {{FILE_COUNT}} files<br>
+        Coverage: {{COVERAGE}} · Date: {{DATE}} · Prepared by: code-analyze (static, read-only)
+      </div>
+    </div>
+    <div class="sevrow">
+      <div class="pill"><b style="color:var(--crit)">{{N_CRIT}}</b><span>Critical</span></div>
+      <div class="pill"><b style="color:var(--high)">{{N_HIGH}}</b><span>High</span></div>
+      <div class="pill"><b style="color:var(--med)">{{N_MED}}</b><span>Medium</span></div>
+      <div class="pill"><b style="color:var(--low)">{{N_LOW}}</b><span>Low</span></div>
+    </div>
+  </div>
+
+  <!-- ================= TOC ================= -->
+  <div class="panel">
+    <div class="toc">
+      <a href="#summary">1. Executive summary</a><br>
+      <a href="#overview">2. Overview &amp; metrics</a><br>
+      <a href="#arch">3. Architecture &amp; key artifacts</a><br>
+      <a href="#caps">4. Core features &amp; capabilities</a><br>
+      <a href="#sys">5. System interaction surface</a><br>
+      <a href="#netcrypto">6. Networking &amp; cryptography</a><br>
+      <a href="#deps">7. Dependencies &amp; integrations</a><br>
+      <a href="#tree">8. Call tree</a><br>
+      <a href="#vulns">9. Potential vulnerabilities</a><br>
+      <a href="#repl">10. Replication &amp; feature-match</a><br>
+      <a href="#method">11. Methodology &amp; reproduction</a><br>
+      <a href="#conclusion">12. Conclusion</a>
+    </div>
+  </div>
+
+  <!-- ================= 1. EXEC SUMMARY ================= -->
+  <h2 id="summary">1. Executive Summary</h2>
+  <p>{{EXEC_SUMMARY}}</p>
+
+  <!-- ================= 2. OVERVIEW + METRICS ================= -->
+  <h2 id="overview">2. Overview &amp; Metrics</h2>
+  <div class="tiles">
+    <div class="tile"><b>{{FILE_COUNT}}</b><span>Source files</span></div>
+    <div class="tile"><b>{{LOC}}</b><span>Code lines</span></div>
+    <div class="tile"><b>{{LANG_COUNT}}</b><span>Languages</span></div>
+    <div class="tile"><b>{{DEP_COUNT}}</b><span>3rd-party deps</span></div>
+    <div class="tile"><b>{{SECRET_COUNT}}</b><span>Secret hits</span></div>
+  </div>
+  <p class="muted" style="font-size:13px"><b>Language breakdown (measured):</b> <!-- SLOT: chips -->
+    <span class="chip">Lang — N</span></p>
+  <p>{{OVERVIEW}}</p>
+
+  <!-- ================= 3. ARCHITECTURE ================= -->
+  <h2 id="arch">3. Architecture &amp; Key Artifacts</h2>
+  <p>{{ARCH_INTRO}}</p>
+  <table><thead><tr><th>File / module</th><th>Role</th></tr></thead><tbody>
+    <!-- SLOT: one row per key artifact -->
+    <tr><td><code>path/file</code></td><td>role</td></tr>
+  </tbody></table>
+
+  <!-- ================= 4. CAPABILITIES (by mechanism) ================= -->
+  <h2 id="caps">4. Core Features &amp; Capabilities</h2>
+  <p class="muted" style="font-size:13px">Each capability is described by <b>how it is achieved in the code</b> — the API set / library / syscalls and the functions that call them.</p>
+  <ul>
+    <!-- SLOT: <li><b>Capability</b> — implemented via <API set> (functions/files)</li> -->
+    <li><b>Capability</b> — implemented via the X API set (<code>func</code> in <code>file</code>).</li>
+  </ul>
+
+  <!-- ================= 5. SYSTEM INTERACTION ================= -->
+  <h2 id="sys">5. System Interaction Surface</h2>
+  <div class="grid2">
+    <div class="panel" style="margin:0"><ul class="clean">
+      <!-- SLOT: networking / registry / file / process / sensitive / persistence -->
+      <li><b>Networking</b> — …</li>
+      <li><b>Registry / system config</b> — …</li>
+      <li><b>File &amp; filesystem</b> — …</li>
+    </ul></div>
+    <div class="panel" style="margin:0"><ul class="clean">
+      <li><b>Process &amp; OS control</b> — …</li>
+      <li><b>Sensitive-system access</b> — …</li>
+      <li><b>Persistence / autostart</b> — …</li>
+    </ul></div>
+  </div>
+
+  <!-- ================= 6. NETWORKING & CRYPTO ================= -->
+  <h2 id="netcrypto">6. Networking &amp; Cryptography</h2>
+  <div class="grid2">
+    <div class="panel" style="margin:0"><h3>Networking</h3><ul class="clean"><li>{{NET}}</li></ul></div>
+    <div class="panel" style="margin:0"><h3>Cryptography</h3><ul class="clean"><li>{{CRYPTO}}</li></ul></div>
+  </div>
+  <p><b>Network signatures / indicators (IOCs):</b> {{SIGNATURES}}</p>
+
+  <!-- ================= 7. DEPENDENCIES ================= -->
+  <h2 id="deps">7. Dependencies &amp; Integrations</h2>
+  <ul><!-- SLOT --><li>…</li></ul>
+
+  <!-- ================= 8. CALL TREE ================= -->
+  <h2 id="tree">8. Call Tree</h2>
+  <p class="muted" style="font-size:13px">Static caller→callee hierarchy of the key functions, rooted at the entry point (IDA-style). Interactive in HTML — click a node to collapse its subtree, drag to pan, scroll to zoom. {{TREE_NOTE}}</p>
+  <div class="tree-wrap">
+    <div class="ct-btns"><button id="ct-expand">Expand all</button><button id="ct-collapse">Collapse all</button><button id="ct-fit">Fit</button></div>
+    <svg id="ct-svg"></svg>
+    <div class="ct-legend" id="ct-legend"></div>
+  </div>
+
+  <!-- ================= 9. VULNERABILITIES ================= -->
+  <h2 id="vulns">9. Potential Vulnerabilities</h2>
+  <p><b>Risk posture:</b> {{RISK_POSTURE}}</p>
+  <table><thead><tr><th>Severity</th><th>Finding</th><th>Location</th><th>Why it matters</th></tr></thead><tbody>
+    <!-- SLOT: one row per finding, worst first -->
+    <tr><td><span class="sev-tag sev-info">INFO</span></td><td>finding</td><td><code>file:line</code></td><td>why</td></tr>
+  </tbody></table>
+
+  <!-- ================= 10. REPLICATION ================= -->
+  <h2 id="repl">10. Replication &amp; Feature-Match Assessment</h2>
+  <p><span class="risk-badge risk-med">DIFFICULTY: {{REPL_DIFFICULTY}}</span> <span class="muted" style="font-size:13px">{{REPL_EFFORT}}</span></p>
+  <div class="grid2">
+    <div class="panel" style="margin:0"><h3 class="ok">Commodity</h3><ul class="clean"><!-- SLOT --><li>…</li></ul></div>
+    <div class="panel" style="margin:0"><h3 class="warn">Hard / differentiated</h3><ul class="clean"><!-- SLOT --><li>…</li></ul></div>
+  </div>
+  <p><b>Expertise:</b> {{REPL_EXPERTISE}} <b>Moat:</b> {{REPL_MOAT}}</p>
+
+  <!-- ================= 11. METHODOLOGY & REPRODUCTION ================= -->
+  <h2 id="method">11. Methodology &amp; Reproduction</h2>
+  <p>This is a <b>read-only static analysis</b>. The steps below let an engineer reproduce every measured figure and finding in this report from scratch.</p>
+  <h3>Environment &amp; tools</h3>
+  <ul>
+    <li>Platform: {{ENV}}</li>
+    <li>Bundled tooling (from the code-analyze skill): <code>count_loc.py</code> (line metrics), <code>scan_secrets.py</code> (secret sweep), <code>html_to_pdf.py</code> (PDF render).</li>
+  </ul>
+  <h3>Steps</h3>
+  <pre>{{REPRO_COMMANDS}}</pre>
+  <h3>Coverage</h3>
+  <p>{{COVERAGE_DETAIL}}</p>
+  <h3>Build / verify the target (optional)</h3>
+  <pre>{{BUILD_STEPS}}</pre>
+
+  <!-- ================= 12. CONCLUSION ================= -->
+  <h2 id="conclusion">12. Conclusion</h2>
+  <p>{{CONCLUSION}}</p>
+
+  <footer>Generated by the code-analyze skill · static, read-only source review · not a substitute for a full penetration test or dynamic analysis · {{DATE}}.</footer>
+</div>
+
+<script>
+/* ===================== Embedded call tree ===================== */
+(function(){
+  const GRAPH = {
+    // root:"main",
+    nodes: [
+      {id:"main", label:"main", group:"entry", weight:3, module:"app"},
+      {id:"parse", label:"parse_args", group:"core", weight:1, module:"app"},
+      {id:"run", label:"run", group:"core", weight:3, module:"core"},
+      {id:"io", label:"write_out", group:"io", weight:1, module:"io"},
+    ],
+    edges: [ {from:"main",to:"parse"},{from:"main",to:"run"},{from:"run",to:"io"} ],
+  };
+  const GROUP_LABEL={entry:"Entry point",core:"Core logic",network:"Networking",crypto:"Cryptography",io:"File / I/O",ui:"UI",util:"Utility",external:"External / API"};
+  const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const groupColor=g=>cssVar("--g-"+g)||cssVar("--g-util");
+  const NS="http://www.w3.org/2000/svg"; const svg=document.getElementById("ct-svg");
+  const byId=Object.fromEntries(GRAPH.nodes.map(n=>[n.id,n]));
+  const adj={}; GRAPH.nodes.forEach(n=>adj[n.id]=[]); const indeg={}; GRAPH.nodes.forEach(n=>indeg[n.id]=0);
+  GRAPH.edges.forEach(e=>{ if(byId[e.from]&&byId[e.to]&&!adj[e.from].includes(e.to)){ adj[e.from].push(e.to); indeg[e.to]++; } });
+  let roots=GRAPH.root?[GRAPH.root]:GRAPH.nodes.filter(n=>indeg[n.id]===0).map(n=>n.id);
+  if(!roots.length&&GRAPH.nodes.length) roots=[GRAPH.nodes.slice().sort((a,b)=>adj[b.id].length-adj[a.id].length)[0].id];
+  const MAX=600; let count=0;
+  function build(id,anc,parent){ const inst={id,node:byId[id],children:[],collapsed:false,recursive:false,parent,el:null}; count++;
+    if(anc.has(id)){inst.recursive=true;return inst;} if(count>MAX) return inst;
+    const na=new Set(anc); na.add(id); for(const c of adj[id]) inst.children.push(build(c,na,inst)); return inst; }
+  const forest=roots.map(r=>build(r,new Set(),null));
+  const COLW=210,ROWH=34,NODEW=176,NODEH=26; let maxX=0,maxY=0;
+  function layout(inst,depth,cur){ inst.x=depth*COLW; const kids=inst.collapsed?[]:inst.children;
+    if(!kids.length){inst.y=cur.y;cur.y+=ROWH;} else {const ys=[];for(const c of kids){layout(c,depth+1,cur);ys.push(c.y);}inst.y=(ys[0]+ys[ys.length-1])/2;}
+    maxX=Math.max(maxX,inst.x+NODEW); maxY=Math.max(maxY,inst.y+NODEH); }
+  function relayout(){maxX=0;maxY=0;const cur={y:12};for(const f of forest){layout(f,0,cur);cur.y+=ROWH*0.5;}}
+  const view=document.createElementNS(NS,"g"); svg.appendChild(view);
+  const gLinks=document.createElementNS(NS,"g"),gNodes=document.createElementNS(NS,"g"); view.appendChild(gLinks); view.appendChild(gNodes);
+  const trunc=(s,n)=>s.length>n?s.slice(0,n-1)+"…":s;
+  function draw(){ relayout(); gLinks.textContent=""; gNodes.textContent="";
+    const all=[]; forest.forEach(f=>{(function w(i){all.push(i); if(!i.collapsed) i.children.forEach(w);})(f);});
+    for(const inst of all){ if(inst.collapsed) continue; for(const c of inst.children){
+      const px=inst.x+NODEW,py=inst.y+NODEH/2,cx=c.x,cy=c.y+NODEH/2,mx=(px+cx)/2;
+      const p=document.createElementNS(NS,"path"); p.setAttribute("class","link"); p._b=c;
+      p.setAttribute("d",`M${px},${py} H${mx} V${cy} H${cx}`); gLinks.appendChild(p);
+    }}
+    for(const inst of all){ const g=document.createElementNS(NS,"g"); g.setAttribute("class","node");
+      g.setAttribute("transform",`translate(${inst.x},${inst.y})`); inst.el=g;
+      const box=document.createElementNS(NS,"rect"); box.setAttribute("class","nodebox"); box.setAttribute("width",NODEW); box.setAttribute("height",NODEH); box.setAttribute("rx",5); g.appendChild(box);
+      const dot=document.createElementNS(NS,"rect"); dot.setAttribute("x",8); dot.setAttribute("y",NODEH/2-5); dot.setAttribute("width",10); dot.setAttribute("height",10); dot.setAttribute("rx",2); dot.setAttribute("fill",groupColor(inst.node.group)); g.appendChild(dot);
+      const lbl=document.createElementNS(NS,"text"); lbl.setAttribute("class","nlabel"); lbl.setAttribute("x",24); lbl.setAttribute("y",NODEH/2); lbl.textContent=(inst.recursive?"↺ ":"")+trunc(inst.node.label,20); g.appendChild(lbl);
+      const title=document.createElementNS(NS,"title"); title.textContent=inst.node.label+(inst.node.module?"  ·  "+inst.node.module:"")+"  ·  "+(GROUP_LABEL[inst.node.group]||inst.node.group); g.appendChild(title);
+      if(inst.children.length&&!inst.recursive){ const cg=document.createElementNS(NS,"g"); cg.style.cursor="pointer";
+        const cc=document.createElementNS(NS,"circle"); cc.setAttribute("class","caret"); cc.setAttribute("cx",NODEW); cc.setAttribute("cy",NODEH/2); cc.setAttribute("r",8);
+        const cs=document.createElementNS(NS,"text"); cs.setAttribute("class","caretsign"); cs.setAttribute("x",NODEW); cs.setAttribute("y",NODEH/2); cs.textContent=inst.collapsed?"+":"–";
+        cg.appendChild(cc); cg.appendChild(cs); cg.addEventListener("click",e=>{e.stopPropagation(); inst.collapsed=!inst.collapsed; draw();}); g.appendChild(cg); }
+      g.addEventListener("click",()=>{ if(inst.children.length&&!inst.recursive){ inst.collapsed=!inst.collapsed; draw(); }});
+      g.addEventListener("mouseenter",()=>hl(inst,true)); g.addEventListener("mouseleave",()=>hl(inst,false)); gNodes.appendChild(g); }
+  }
+  function hl(inst,on){ const chain=new Set(); let p=inst; while(p){chain.add(p);p=p.parent;}
+    view.querySelectorAll(".link").forEach(l=>l.classList.toggle("hi",on&&chain.has(l._b)));
+    forest.forEach(f=>{(function w(i){ if(i.el) i.el.classList.toggle("hi",on&&chain.has(i)); if(!i.collapsed) i.children.forEach(w); })(f);}); }
+  const usedGroups=[...new Set(GRAPH.nodes.map(n=>n.group))]; const legend=document.getElementById("ct-legend");
+  usedGroups.forEach(g=>{const s=document.createElement("span"); s.innerHTML='<i style="background:'+groupColor(g)+'"></i>'+(GROUP_LABEL[g]||g); legend.appendChild(s);});
+  let scale=1,tx=20,ty=10,panning=false,sx=0,sy=0;
+  const applyView=()=>view.setAttribute("transform",`translate(${tx},${ty}) scale(${scale})`);
+  function fit(){ const W=svg.clientWidth,H=svg.clientHeight; const s=Math.min((W-40)/Math.max(maxX,1),(H-30)/Math.max(maxY,1),1.15); scale=s>0?s:1; tx=20; ty=Math.max(10,(H-maxY*scale)/2); applyView(); }
+  svg.addEventListener("mousedown",e=>{panning=true;svg.classList.add("panning");sx=e.clientX-tx;sy=e.clientY-ty;});
+  window.addEventListener("mousemove",e=>{if(panning){tx=e.clientX-sx;ty=e.clientY-sy;applyView();}});
+  window.addEventListener("mouseup",()=>{panning=false;svg.classList.remove("panning");});
+  svg.addEventListener("wheel",e=>{e.preventDefault();const r=svg.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;const k=e.deltaY<0?1.1:0.9;tx=mx-(mx-tx)*k;ty=my-(my-ty)*k;scale*=k;applyView();},{passive:false});
+  function setAll(v){ forest.forEach(f=>{(function w(i,d){ i.collapsed=v&&d>=1&&i.children.length>0; i.children.forEach(c=>w(c,d+1)); })(f,0);}); draw(); }
+  document.getElementById("ct-expand").addEventListener("click",()=>setAll(false));
+  document.getElementById("ct-collapse").addEventListener("click",()=>setAll(true));
+  document.getElementById("ct-fit").addEventListener("click",fit);
+  draw(); fit(); window.addEventListener("resize",fit);
+})();
+</script>
+</body>
+</html>
