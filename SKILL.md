@@ -144,7 +144,19 @@ One tight paragraph: what the project is, its primary language/stack, its maturi
 How the project is organized and how it runs. Entry points, core modules, the notable files a new engineer must know, build/deploy setup. A short directory-level orientation is welcome. Reference real paths.
 
 ## Core Features & Capabilities
-Open with a tight bulleted list of the **core features** — the handful of things this app exists to do, as a user would name them. Then expand into fuller capabilities traced from the source: commands, APIs/endpoints, integrations with external services, data it reads/writes. Note where reality diverges from the README.
+Open with a tight bulleted list of the **core features** — the handful of things this app exists to do, as a user would name them.
+
+Then, for each capability, **describe how it is achieved in the code** — name the concrete mechanism, not just the outcome. Point to the specific API set, library, framework, or syscalls, and the functions/files that call them. For example: "Cryptography is implemented through calls to the Windows CNG API set (`BCryptEncrypt`/`BCryptGenRandom` in `crypto.c`)"; "Networking is done with the `requests` library hitting `api.example.com` from `client.py`"; "Persistence is achieved by writing a Run key via the registry API (`RegSetValueEx` in `install.c`)". This turns the capability list into a map of *how the program actually touches the world*, which is far more useful than a paraphrase of the README.
+
+Cast a wide net — this is not only about security bugs. Trace and report the core functions behind every way the program interacts with the system, especially:
+- **Networking** — the client/server libraries and the hosts/ports/endpoints they reach.
+- **System & registry modification** — registry reads/writes, environment/service/scheduled-task changes, driver or kernel interaction, privilege/token operations.
+- **File & filesystem access** — what it reads, writes, creates, or deletes, and where (config, temp, user data, system paths).
+- **Process & OS control** — spawning processes, injecting, loading libraries, IPC (named pipes/events/mutexes/sockets), OS queries.
+- **Sensitive-system access** — microphone/camera/screen capture, keystrokes, credentials/keychain, location, clipboard, or any other privacy- or security-sensitive resource.
+- **Cryptography** — the primitives/API set used and for what.
+
+Note where reality diverges from the README.
 
 ## Dependencies & Integrations
 Key third-party libraries, external services/APIs it talks to, and how it's configured (env vars, config files, secrets it expects).
@@ -202,7 +214,7 @@ A function call graph makes the *interrelationships* between key functions visib
 Because this skill is **read-only static analysis** (never execute the target), the graph is built from **static call relationships you traced while reading** — who calls whom — not from runtime tracing. It's rendered as a bundled interactive visualization so it *behaves* dynamically (force-directed auto-layout, drag, zoom, hover-to-trace), which is what "dynamic call graph" means here.
 
 How to build it:
-1. From your reading, pick the **key functions** — the spine and the security-relevant ones (entry points, dispatchers, request/auth handlers, network/crypto/file I/O, the functions that appear in findings). Aim for a legible graph of roughly **10–40 nodes**; a hairball of every function helps no one. Use grep/AST to confirm edges you're unsure of rather than guessing.
+1. From your reading, pick the **key functions** — not just the security-relevant ones, but the core functions behind the app's essential capabilities. Include: entry points and dispatchers; the functions that do **networking**, **system/registry modification**, **file access**, **process/OS control**, and **sensitive-system access** (mic/camera/keystrokes/credentials/etc.); crypto; and anything that appears in findings. Colour them by `group` so the graph doubles as a map of how the program touches the system. Aim for a legible graph of roughly **10–40 nodes**; a hairball of every function helps no one. Use grep/AST to confirm edges you're unsure of rather than guessing.
 2. Copy `assets/callgraph-template.html` to `<scratchpad>/CODE-ANALYSIS-callgraph.html` and replace the demo `GRAPH` object with the real nodes and edges. Node schema: `{id, label, group, weight, module}` where `group` is one of `entry|core|network|crypto|io|ui|util|external` (drives colour) and `weight` 1–4 (drives size); edge schema: `{from, to}` with direction **caller → callee**. Set the `{{PROJECT_NAME}}` title.
 3. It's self-contained (inline JS, no CDN) and theme-aware, and carries print styles, so it exports to PDF via the same converter:
    `python "<skill-dir>/scripts/html_to_pdf.py" <path>/CODE-ANALYSIS-callgraph.html <path>/CODE-ANALYSIS-callgraph.pdf`
