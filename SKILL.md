@@ -52,6 +52,17 @@ Work in this order:
 
 State your coverage honestly in the report. The target is **100% of source files read in full** — say so when you achieve it (e.g. "all N files read in full"). If a repo is so large that a complete read is genuinely infeasible in the session, do not quietly sample: read as much as you can (spine + all security-relevant modules first), then tell the user plainly which files remain unread and offer to continue, rather than presenting partial coverage as complete. Always list binary/generated files that were excluded and note they were not disassembled.
 
+### Very large repos: chunk the full read across turns
+
+A single session cannot hold every line of a large codebase in context — tens of thousands of lines will exhaust the window before you finish. That does **not** lower the every-file bar; it changes the *pacing*. When `count_loc.py` shows the repo is big (rough rule of thumb: more than ~10–15k lines of code, or more than ~50 source files), plan a **chunked complete read** instead of trying to swallow it whole:
+
+1. **Build a coverage checklist.** Take the file manifest (the `find`/`count_loc.py` listing) and treat it as a to-do list of every source file. Persist it if useful — e.g. write `coverage.md` (or a checklist in the workspace) marking each file `read` / `pending`, so progress survives across turns and nothing is silently skipped.
+2. **Read in prioritized batches.** Order: the spine and security-relevant modules first (entry points, auth, config, anything doing TLS/network/crypto/`eval`/`exec`/`subprocess`/deserialization/file I/O), then the rest. Read a batch, extract the findings and facts you need into your notes/report, tick those files off, and move on. You are mining each file for what matters, not memorizing it.
+3. **Confirm what data files are, then move on.** Large generated/data blobs that happen to be text (a checked-in knowledge-base JSON, embeddings dumps, fixtures) should be sampled enough to confirm what they are and noted as data — do not read every line of a 7k-line generated JSON as if it were logic. First-party code is never treated this way.
+4. **Be explicit about state.** If you run out of room before the checklist is exhausted, say so precisely: "read in full: X of N files (list/attach the checklist); remaining Y files pending (list them)" — and offer to continue in the next turn. When re-invoked to continue, resume from the checklist rather than starting over. Only claim "100% / all files read" when the checklist is genuinely complete.
+
+The point is that "read everything" is achieved by **completing the checklist over as many turns as it takes**, not by pretending one pass covered a repo it could not.
+
 ## Secret & credential scanning
 
 Every codebase analysis needs the same regex-and-triage secret sweep, so a script is bundled to do it consistently instead of reinventing it each time. Run it against the repo root:
