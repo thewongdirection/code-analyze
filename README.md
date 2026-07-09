@@ -14,7 +14,7 @@ structured Markdown report and a self-contained HTML dashboard.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
 - **Replication & feature-match assessment** — how hard the app would be to rebuild, what's commodity vs. differentiated, and whether there's any real moat.
-- **Deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift), plus an **optional interactive function call graph** (force-directed, drag/zoom/hover-to-trace) showing how the key functions interrelate.
+- **Deliverables** — an authoritative `CODE-ANALYSIS.md` and a glanceable, theme-aware dashboard delivered as **HTML, PDF, or both** (the PDF is rendered from the same HTML, so they never drift), plus an **optional interactive function call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees) showing how the key functions call each other.
 
 ## Approach
 

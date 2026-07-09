@@ -1,76 +1,84 @@
 <!DOCTYPE html>
 <!--
-  code-analyze call-graph template.
-  Populate the GRAPH object below with the KEY functions (nodes) and the call
-  relationships you traced while reading (edges). Keep it self-contained: no CDNs.
+  code-analyze call-graph template — IDA-style hierarchical CALL TREE.
+  Root (entry point) on the left; callees expand to the right; elbow connectors;
+  click a node to collapse/expand its subtree. Self-contained: no CDNs.
 
-  Node schema:  { id:"unique", label:"display name", group:"entry|core|network|crypto|io|ui|util|external", weight:1..4, module:"path/file.py" }
-  Edge schema:  { from:"callerId", to:"calleeId" }   // direction = caller -> callee
-  Focus on the spine and security-relevant functions; a legible ~10-40 node graph
-  beats an unreadable dump of every function.
+  Populate GRAPH with the KEY functions (nodes) and the call relationships you
+  traced (edges). Same schema as before, so guidance is unchanged:
+    Node:  { id, label, group:"entry|core|network|crypto|io|ui|util|external", weight:1..4, module }
+    Edge:  { from:"callerId", to:"calleeId" }   // direction = caller -> callee
+  The tree is rooted at nodes with no caller (in-degree 0); set GRAPH.root to
+  force a specific root. Shared callees are shown under each caller (like IDA's
+  indented call tree); recursion/cycles are shown once and marked "↺".
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Call Graph — {{PROJECT_NAME}}</title>
+<title>Call Tree — {{PROJECT_NAME}}</title>
 <style>
   :root{
-    --bg:#0d1117; --panel:#161b22; --border:#2a3441; --fg:#e6edf3; --muted:#8b949e;
-    --edge:#5b6673; --edgehi:#e6edf3;
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2a3441; --fg:#e6edf3; --muted:#8b949e;
+    --link:#5b6673; --linkhi:#e6edf3; --nodebg:#1c2330; --nodebghi:#2a3546;
     --g-entry:#f85149; --g-core:#58a6ff; --g-network:#ff9800; --g-crypto:#bc8cff;
     --g-io:#3fb950; --g-ui:#39c5cf; --g-util:#8b949e; --g-external:#d4a72c;
   }
   @media (prefers-color-scheme: light){
-    :root{ --bg:#f6f8fa; --panel:#fff; --border:#d0d7de; --fg:#1f2328; --muted:#636c76;
-           --edge:#c0c7d0; --edgehi:#1f2328; }
+    :root{ --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f6; --border:#d0d7de; --fg:#1f2328; --muted:#636c76;
+           --link:#b0b8c1; --linkhi:#1f2328; --nodebg:#fff; --nodebghi:#eef2f6; }
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-    font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-  header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;
-    justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
-  header h1{font-size:17px;margin:0;}
-  header .sub{color:var(--muted);font-size:12px;}
-  #wrap{position:relative;height:calc(100% - 52px);min-height:520px;}
-  svg{width:100%;height:100%;display:block;cursor:grab;}
-  svg.panning{cursor:grabbing;}
-  .edge{stroke:var(--edge);stroke-width:1.2;marker-end:url(#arrow);opacity:.5;}
-  .edge.hi{stroke:var(--edgehi);opacity:1;stroke-width:1.8;}
-  .node circle{stroke:var(--panel);stroke-width:1.5;cursor:pointer;}
-  .node text{fill:var(--fg);font-size:11px;pointer-events:none;paint-order:stroke;
-    stroke:var(--bg);stroke-width:3px;stroke-linejoin:round;}
-  .node.dim{opacity:.15;}
-  .legend{position:absolute;top:12px;left:12px;background:var(--panel);
-    border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;}
+    font:13px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;
+    justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  header h1{font-size:16px;margin:0;} header .sub{color:var(--muted);font-size:12px;}
+  .btns button{background:var(--panel2);color:var(--fg);border:1px solid var(--border);
+    border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;margin-left:6px;}
+  .btns button:hover{background:var(--nodebghi);}
+  #wrap{position:relative;height:calc(100% - 50px);min-height:520px;overflow:hidden;}
+  svg{width:100%;height:100%;display:block;cursor:grab;} svg.panning{cursor:grabbing;}
+  .link{fill:none;stroke:var(--link);stroke-width:1.3;}
+  .link.hi{stroke:var(--linkhi);stroke-width:2;}
+  .nodebox{fill:var(--nodebg);stroke:var(--border);stroke-width:1;rx:5;cursor:pointer;}
+  .node.hi .nodebox{fill:var(--nodebghi);stroke:var(--linkhi);}
+  .node.dim{opacity:.35;}
+  .nlabel{fill:var(--fg);font-size:12px;dominant-baseline:middle;pointer-events:none;}
+  .nmod{fill:var(--muted);font-size:10px;dominant-baseline:middle;pointer-events:none;}
+  .caret{fill:var(--panel);stroke:var(--muted);stroke-width:1;cursor:pointer;}
+  .caretsign{fill:var(--muted);font-size:12px;text-anchor:middle;dominant-baseline:central;pointer-events:none;font-weight:700;}
+  .legend{position:absolute;top:10px;right:10px;background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:8px 10px;font-size:11px;max-width:220px;}
   .legend b{display:block;margin-bottom:4px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:10px;}
   .legend span{display:inline-flex;align-items:center;gap:5px;margin:2px 8px 2px 0;}
-  .legend i{width:10px;height:10px;border-radius:50%;display:inline-block;}
-  .hint{position:absolute;bottom:12px;left:12px;color:var(--muted);font-size:11px;
-    background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:5px 8px;}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .hint{position:absolute;bottom:10px;left:12px;color:var(--muted);font-size:11px;
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:5px 8px;max-width:60%;}
   @media print{
-    :root{--bg:#fff;--panel:#fff;--fg:#111;--muted:#555;--edge:#999;}
-    .hint{display:none;} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-    @page{margin:8mm;}
+    :root{--bg:#fff;--panel:#fff;--nodebg:#fff;--fg:#111;--muted:#555;--link:#999;--border:#bbb;}
+    .hint,.btns{display:none;} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;} @page{margin:8mm;}
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>Call Graph — {{PROJECT_NAME}}</h1>
-  <span class="sub">caller → callee · drag nodes · scroll to zoom · hover to trace</span>
+  <div><h1>Call Tree — {{PROJECT_NAME}}</h1>
+    <span class="sub">caller → callee · click a node to collapse/expand · drag to pan · scroll to zoom</span></div>
+  <div class="btns"><button id="expand">Expand all</button><button id="collapse">Collapse all</button><button id="fit">Fit</button></div>
 </header>
 <div id="wrap">
   <svg id="svg"></svg>
   <div class="legend" id="legend"><b>Function type</b></div>
-  <div class="hint">Hover a function to highlight what it calls and what calls it.</div>
+  <div class="hint">{{HINT}}</div>
 </div>
 <script>
-/* ------- data: replace GRAPH with the analyzed call graph ------- */
+/* ---------- data: replace GRAPH with the analyzed call graph ---------- */
 const GRAPH = {
+  // root: "main",   // optional: force a root; else in-degree-0 nodes are roots
   nodes: [
     {id:"main", label:"main", group:"entry", weight:3, module:"app.py"},
-    {id:"parse", label:"parse_args", group:"core", weight:2, module:"app.py"},
+    {id:"parse", label:"parse_args", group:"core", weight:1, module:"app.py"},
     {id:"run", label:"run", group:"core", weight:3, module:"core.py"},
     {id:"load", label:"load_config", group:"io", weight:2, module:"config.py"},
     {id:"fetch", label:"fetch", group:"network", weight:2, module:"net.py"},
@@ -82,111 +90,139 @@ const GRAPH = {
     {from:"run", to:"fetch"}, {from:"fetch", to:"enc"}, {from:"run", to:"write"},
   ],
 };
-/* ---------------------------------------------------------------- */
+/* --------------------------------------------------------------------- */
 
-const GROUP_LABEL = {entry:"Entry point",core:"Core logic",network:"Networking",
-  crypto:"Cryptography",io:"File / I/O",ui:"UI",util:"Utility",external:"External / API"};
-const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-const groupColor = g => cssVar("--g-"+g) || cssVar("--g-util");
+const GROUP_LABEL={entry:"Entry point",core:"Core logic",network:"Networking",crypto:"Cryptography",
+  io:"File / I/O",ui:"UI",util:"Utility",external:"External / API"};
+const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const groupColor=g=>cssVar("--g-"+g)||cssVar("--g-util");
+const NS="http://www.w3.org/2000/svg";
+const svg=document.getElementById("svg");
 
-const svg = document.getElementById("svg");
-const NS = "http://www.w3.org/2000/svg";
-let W = svg.clientWidth || 1000, H = svg.clientHeight || 600;
+const byId=Object.fromEntries(GRAPH.nodes.map(n=>[n.id,n]));
+const adj={}; GRAPH.nodes.forEach(n=>adj[n.id]=[]);
+const indeg={}; GRAPH.nodes.forEach(n=>indeg[n.id]=0);
+GRAPH.edges.forEach(e=>{ if(byId[e.from]&&byId[e.to]&&!adj[e.from].includes(e.to)){ adj[e.from].push(e.to); indeg[e.to]++; } });
 
-// defs (arrow marker)
-svg.innerHTML =
-  '<defs><marker id="arrow" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="7" '+
-  'markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" '+
-  'fill="'+cssVar("--edge")+'"/></marker></defs>';
-const view = document.createElementNS(NS,"g"); svg.appendChild(view);
-const gEdges = document.createElementNS(NS,"g"); view.appendChild(gEdges);
-const gNodes = document.createElementNS(NS,"g"); view.appendChild(gNodes);
+// roots: explicit, else in-degree 0, else highest out-degree fallback
+let roots = GRAPH.root ? [GRAPH.root] : GRAPH.nodes.filter(n=>indeg[n.id]===0).map(n=>n.id);
+if(roots.length===0 && GRAPH.nodes.length) roots=[GRAPH.nodes.slice().sort((a,b)=>adj[b.id].length-adj[a.id].length)[0].id];
 
-const nodes = GRAPH.nodes.map((n,i)=>({...n,
-  x:W/2 + Math.cos(i/GRAPH.nodes.length*6.283)*Math.min(W,H)*0.3,
-  y:H/2 + Math.sin(i/GRAPH.nodes.length*6.283)*Math.min(W,H)*0.3, vx:0, vy:0, fixed:false}));
-const byId = Object.fromEntries(nodes.map(n=>[n.id,n]));
-const edges = GRAPH.edges.filter(e=>byId[e.from]&&byId[e.to])
-  .map(e=>({s:byId[e.from], t:byId[e.to]}));
-const deg = {}; edges.forEach(e=>{deg[e.s.id]=(deg[e.s.id]||0)+1; deg[e.t.id]=(deg[e.t.id]||0)+1;});
-const neigh = {}; nodes.forEach(n=>neigh[n.id]=new Set([n.id]));
-edges.forEach(e=>{neigh[e.s.id].add(e.t.id); neigh[e.t.id].add(e.s.id);});
+// build instance tree (DAG duplicated like IDA; cycles shown once, marked)
+const MAX=600; let count=0;
+function build(id,ancestors,parent){
+  const inst={id,node:byId[id],children:[],collapsed:false,recursive:false,parent,el:null};
+  count++;
+  if(ancestors.has(id)){ inst.recursive=true; return inst; }
+  if(count>MAX) return inst;
+  const na=new Set(ancestors); na.add(id);
+  for(const c of adj[id]) inst.children.push(build(c,na,inst));
+  return inst;
+}
+const forest=roots.map(r=>build(r,new Set(),null));
 
-const radius = n => 7 + (n.weight||1)*3 + Math.min((deg[n.id]||0),6);
+// layout (horizontal: depth -> x, tidy stacking -> y)
+const COLW=210, ROWH=34, NODEW=176, NODEH=26;
+let maxX=0,maxY=0;
+function layout(inst,depth,cur){
+  inst.x=depth*COLW;
+  const kids=inst.collapsed?[]:inst.children;
+  if(kids.length===0){ inst.y=cur.y; cur.y+=ROWH; }
+  else { const ys=[]; for(const c of kids){ layout(c,depth+1,cur); ys.push(c.y);} inst.y=(ys[0]+ys[ys.length-1])/2; }
+  maxX=Math.max(maxX,inst.x+NODEW); maxY=Math.max(maxY,inst.y+NODEH);
+}
+function relayout(){ maxX=0; maxY=0; const cur={y:12}; for(const f of forest){ layout(f,0,cur); cur.y+=ROWH*0.5; } }
 
-// build DOM
-const edgeEls = edges.map(e=>{ const l=document.createElementNS(NS,"line");
-  l.setAttribute("class","edge"); gEdges.appendChild(l); return l; });
-const nodeEls = nodes.map(n=>{
-  const g=document.createElementNS(NS,"g"); g.setAttribute("class","node");
-  const c=document.createElementNS(NS,"circle"); c.setAttribute("r",radius(n));
-  c.setAttribute("fill",groupColor(n.group));
-  const t=document.createElementNS(NS,"text"); t.setAttribute("x",radius(n)+3);
-  t.setAttribute("y",4); t.textContent=n.label;
-  const title=document.createElementNS(NS,"title");
-  title.textContent=n.label+(n.module?"  ·  "+n.module:"")+"  ·  "+(GROUP_LABEL[n.group]||n.group);
-  g.appendChild(c); g.appendChild(t); g.appendChild(title); gNodes.appendChild(g);
-  g._node=n; return g;
-});
+// render
+const view=document.createElementNS(NS,"g"); svg.appendChild(view);
+let gLinks=document.createElementNS(NS,"g"), gNodes=document.createElementNS(NS,"g");
+view.appendChild(gLinks); view.appendChild(gNodes);
+function trunc(s,n){ return s.length>n? s.slice(0,n-1)+"…" : s; }
+
+function draw(){
+  relayout();
+  gLinks.textContent=""; gNodes.textContent="";
+  const all=[];
+  (function walk(inst){ all.push(inst); if(!inst.collapsed) inst.children.forEach(walk); })
+    ;forest.forEach(f=>{ (function w(i){ all.push(i); if(!i.collapsed) i.children.forEach(w); })(f); });
+
+  // links (parent right-center -> child left-center, elbow)
+  for(const inst of all){
+    if(inst.collapsed) continue;
+    for(const c of inst.children){
+      const px=inst.x+NODEW, py=inst.y+NODEH/2, cx=c.x, cy=c.y+NODEH/2, mx=(px+cx)/2;
+      const path=document.createElementNS(NS,"path");
+      path.setAttribute("class","link");
+      path.setAttribute("d",`M${px},${py} H${mx} V${cy} H${cx}`);
+      path._a=inst; path._b=c; gLinks.appendChild(path); inst._linkEls=inst._linkEls||[];
+    }
+  }
+  // nodes
+  for(const inst of all){
+    const g=document.createElementNS(NS,"g"); g.setAttribute("class","node");
+    g.setAttribute("transform",`translate(${inst.x},${inst.y})`); inst.el=g;
+    const box=document.createElementNS(NS,"rect"); box.setAttribute("class","nodebox");
+    box.setAttribute("width",NODEW); box.setAttribute("height",NODEH); box.setAttribute("rx",5);
+    g.appendChild(box);
+    const dot=document.createElementNS(NS,"rect"); dot.setAttribute("x",8); dot.setAttribute("y",NODEH/2-5);
+    dot.setAttribute("width",10); dot.setAttribute("height",10); dot.setAttribute("rx",2);
+    dot.setAttribute("fill",groupColor(inst.node.group)); g.appendChild(dot);
+    const lbl=document.createElementNS(NS,"text"); lbl.setAttribute("class","nlabel");
+    lbl.setAttribute("x",24); lbl.setAttribute("y",NODEH/2);
+    lbl.textContent=(inst.recursive?"↺ ":"")+trunc(inst.node.label,20); g.appendChild(lbl);
+    const title=document.createElementNS(NS,"title");
+    title.textContent=inst.node.label+(inst.node.module?"  ·  "+inst.node.module:"")+"  ·  "+(GROUP_LABEL[inst.node.group]||inst.node.group)+(inst.recursive?"  · (recursion)":"");
+    g.appendChild(title);
+    // collapse caret if has children (and not recursive leaf)
+    if(inst.children.length && !inst.recursive){
+      const cg=document.createElementNS(NS,"g"); cg.style.cursor="pointer";
+      const cc=document.createElementNS(NS,"circle"); cc.setAttribute("class","caret");
+      cc.setAttribute("cx",NODEW); cc.setAttribute("cy",NODEH/2); cc.setAttribute("r",8);
+      const cs=document.createElementNS(NS,"text"); cs.setAttribute("class","caretsign");
+      cs.setAttribute("x",NODEW); cs.setAttribute("y",NODEH/2); cs.textContent=inst.collapsed?"+":"–";
+      cg.appendChild(cc); cg.appendChild(cs);
+      cg.addEventListener("click",e=>{ e.stopPropagation(); inst.collapsed=!inst.collapsed; draw(); });
+      g.appendChild(cg);
+    }
+    g.addEventListener("click",()=>{ if(inst.children.length&&!inst.recursive){ inst.collapsed=!inst.collapsed; draw(); } });
+    g.addEventListener("mouseenter",()=>highlight(inst,true));
+    g.addEventListener("mouseleave",()=>highlight(inst,false));
+    gNodes.appendChild(g);
+  }
+}
+function highlight(inst,on){
+  // highlight ancestor chain to root
+  const chain=new Set(); let p=inst; while(p){ chain.add(p); p=p.parent; }
+  gNodes.querySelectorAll(".node").forEach(()=>{});
+  // links
+  view.querySelectorAll(".link").forEach(l=>{ l.classList.toggle("hi", on && chain.has(l._b)); });
+  // node boxes: walk instances via el
+  (function walkAll(list){ list.forEach(f=>{ (function w(i){ if(i.el) i.el.classList.toggle("hi", on&&chain.has(i)); if(!i.collapsed) i.children.forEach(w); })(f); }); })(forest);
+}
 
 // legend
-const usedGroups=[...new Set(nodes.map(n=>n.group))];
+const usedGroups=[...new Set(GRAPH.nodes.map(n=>n.group))];
 const legend=document.getElementById("legend");
-usedGroups.forEach(g=>{ const s=document.createElement("span");
-  s.innerHTML='<i style="background:'+groupColor(g)+'"></i>'+(GROUP_LABEL[g]||g);
-  legend.appendChild(s); });
+usedGroups.forEach(g=>{ const s=document.createElement("span"); s.innerHTML='<i style="background:'+groupColor(g)+'"></i>'+(GROUP_LABEL[g]||g); legend.appendChild(s); });
 
-// ---- force simulation ----
-const REPULSE=9000, SPRING=0.02, LINK=90, GRAV=0.02; let alpha=1;
-function step(){
-  for(const n of nodes){ n.vx=(n.vx||0)*0.85; n.vy=(n.vy||0)*0.85; }
-  for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
-    const a=nodes[i],b=nodes[j]; let dx=b.x-a.x,dy=b.y-a.y; let d2=dx*dx+dy*dy||0.01;
-    const f=REPULSE/d2; const d=Math.sqrt(d2); const fx=dx/d*f, fy=dy/d*f;
-    a.vx-=fx; a.vy-=fy; b.vx+=fx; b.vy+=fy;
-  }
-  for(const e of edges){ let dx=e.t.x-e.s.x,dy=e.t.y-e.s.y; const d=Math.sqrt(dx*dx+dy*dy)||0.01;
-    const f=(d-LINK)*SPRING; const fx=dx/d*f, fy=dy/d*f;
-    e.s.vx+=fx; e.s.vy+=fy; e.t.vx-=fx; e.t.vy-=fy; }
-  for(const n of nodes){ n.vx+=(W/2-n.x)*GRAV*alpha; n.vy+=(H/2-n.y)*GRAV*alpha;
-    if(!n.fixed){ n.x+=Math.max(-30,Math.min(30,n.vx*alpha)); n.y+=Math.max(-30,Math.min(30,n.vy*alpha)); } }
-  if(alpha>0.05) alpha*=0.985;
-}
-function render(){
-  edgeEls.forEach((l,i)=>{ const e=edges[i];
-    l.setAttribute("x1",e.s.x); l.setAttribute("y1",e.s.y);
-    l.setAttribute("x2",e.t.x); l.setAttribute("y2",e.t.y); });
-  nodeEls.forEach(g=>g.setAttribute("transform","translate("+g._node.x+","+g._node.y+")"));
-}
-// pre-settle so a static capture (e.g. PDF) already looks laid out
-for(let i=0;i<400;i++) step();
-render();
-(function loop(){ step(); render(); requestAnimationFrame(loop); })();
+// pan / zoom / fit
+let scale=1,tx=20,ty=10,panning=false,sx=0,sy=0;
+function applyView(){ view.setAttribute("transform",`translate(${tx},${ty}) scale(${scale})`); }
+function fit(){ const W=svg.clientWidth,H=svg.clientHeight; const s=Math.min((W-40)/Math.max(maxX,1),(H-40)/Math.max(maxY,1),1.2);
+  scale=s>0?s:1; tx=20; ty=Math.max(10,(H-maxY*scale)/2); applyView(); }
+svg.addEventListener("mousedown",e=>{ panning=true; svg.classList.add("panning"); sx=e.clientX-tx; sy=e.clientY-ty; });
+window.addEventListener("mousemove",e=>{ if(panning){ tx=e.clientX-sx; ty=e.clientY-sy; applyView(); } });
+window.addEventListener("mouseup",()=>{ panning=false; svg.classList.remove("panning"); });
+svg.addEventListener("wheel",e=>{ e.preventDefault(); const r=svg.getBoundingClientRect(); const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const k=e.deltaY<0?1.1:0.9; tx=mx-(mx-tx)*k; ty=my-(my-ty)*k; scale*=k; applyView(); },{passive:false});
 
-// ---- hover highlight ----
-nodeEls.forEach(g=>{
-  g.addEventListener("mouseenter",()=>{ const id=g._node.id;
-    nodeEls.forEach(o=>o.classList.toggle("dim",!neigh[id].has(o._node.id)));
-    edgeEls.forEach((l,i)=>l.classList.toggle("hi", edges[i].s.id===id||edges[i].t.id===id)); });
-  g.addEventListener("mouseleave",()=>{ nodeEls.forEach(o=>o.classList.remove("dim"));
-    edgeEls.forEach(l=>l.classList.remove("hi")); });
-});
+function setAllCollapsed(v){ forest.forEach(f=>{ (function w(i,depth){ i.collapsed = v && depth>=1 && i.children.length>0; i.children.forEach(c=>w(c,depth+1)); })(f,0); }); draw(); }
+document.getElementById("expand").addEventListener("click",()=>setAllCollapsed(false));
+document.getElementById("collapse").addEventListener("click",()=>setAllCollapsed(true));
+document.getElementById("fit").addEventListener("click",fit);
 
-// ---- drag nodes + pan/zoom ----
-let scale=1, tx=0, ty=0, dragNode=null, panning=false, sx=0, sy=0;
-function applyView(){ view.setAttribute("transform","translate("+tx+","+ty+") scale("+scale+")"); }
-function toGraph(evt){ const r=svg.getBoundingClientRect();
-  return {x:(evt.clientX-r.left-tx)/scale, y:(evt.clientY-r.top-ty)/scale}; }
-nodeEls.forEach(g=>g.addEventListener("mousedown",e=>{ dragNode=g._node; dragNode.fixed=true; e.stopPropagation(); }));
-svg.addEventListener("mousedown",e=>{ if(!dragNode){ panning=true; svg.classList.add("panning"); sx=e.clientX-tx; sy=e.clientY-ty; }});
-window.addEventListener("mousemove",e=>{ if(dragNode){ const p=toGraph(e); dragNode.x=p.x; dragNode.y=p.y; alpha=Math.max(alpha,0.3); }
-  else if(panning){ tx=e.clientX-sx; ty=e.clientY-sy; applyView(); }});
-window.addEventListener("mouseup",()=>{ if(dragNode) dragNode.fixed=false; dragNode=null; panning=false; svg.classList.remove("panning"); });
-svg.addEventListener("wheel",e=>{ e.preventDefault(); const r=svg.getBoundingClientRect();
-  const mx=e.clientX-r.left, my=e.clientY-r.top; const k=e.deltaY<0?1.1:0.9;
-  const nx=mx-(mx-tx)*k, ny=my-(my-ty)*k; scale*=k; tx=nx; ty=ny; applyView(); },{passive:false});
-
-window.addEventListener("resize",()=>{ W=svg.clientWidth; H=svg.clientHeight; alpha=Math.max(alpha,0.3); });
+draw(); fit();
+window.addEventListener("resize",fit);
 </script>
 </body>
 </html>
