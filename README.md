@@ -3,14 +3,15 @@
 A [Claude](https://claude.com/claude-code) skill for **whole-codebase analysis and security review**.
 
 Point it at a GitHub repository (URL) or a local checkout and it acts as a senior
-software engineer, code reviewer, and cybersecurity specialist: it reads the code,
-explains what the project is and what it can actually do, and produces a single
-professional evaluation report — one self-contained HTML plus a matching PDF.
+software engineer, reverse engineer, code reviewer, and cybersecurity specialist —
+with cross-platform depth across Windows, Linux, Android, and iOS: it reads the
+code, explains what the project is and what it can actually do, and produces a
+single professional evaluation report — one self-contained HTML plus a matching PDF.
 
 ## What it produces
 
 - **Overview & architecture** — what the project is, its stack, entry points, and key modules.
-- **Core features & capabilities** — traced from the source, reconciled against the README.
+- **Core features & capabilities** — traced from the executing code, not from the README or the code's own comments; those are used only to corroborate or to flag a mismatch.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
 - **Single deliverable** — one self-contained **HTML evaluation report** and a **matching PDF** rendered from it (so they never drift). Everything collates into that one document: executive summary, metrics, architecture, capabilities (framed by the API set that implements them), system-interaction surface, networking/crypto, findings, a **methodology & reproduction appendix**, and an **embedded interactive call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees).
