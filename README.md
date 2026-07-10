@@ -13,8 +13,7 @@ professional evaluation report — one self-contained HTML plus a matching PDF.
 - **Core features & capabilities** — traced from the source, reconciled against the README.
 - **Networking & cryptography** — outbound/inbound endpoints, protocols, TLS posture, crypto primitives, and **network signatures / IOCs** (or host-based signatures when there's no network).
 - **Potential vulnerabilities** — hardcoded secrets, injection, unsafe deserialization, weak/misused crypto, auth gaps, supply-chain risk — each rated by severity with `file:line` and why it matters.
-- **Replication & feature-match assessment** — how hard the app would be to rebuild, what's commodity vs. differentiated, and whether there's any real moat.
-- **Single deliverable** — one self-contained **HTML evaluation report** and a **matching PDF** rendered from it (so they never drift). Everything collates into that one document: executive summary, metrics, architecture, capabilities (framed by the API set that implements them), system-interaction surface, networking/crypto, findings, replication assessment, a **methodology & reproduction appendix**, and an **embedded interactive call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees).
+- **Single deliverable** — one self-contained **HTML evaluation report** and a **matching PDF** rendered from it (so they never drift). Everything collates into that one document: executive summary, metrics, architecture, capabilities (framed by the API set that implements them), system-interaction surface, networking/crypto, findings, a **methodology & reproduction appendix**, and an **embedded interactive call tree** — an IDA-Pro-style horizontal hierarchy (entry point on the left, callees expanding right, collapsible subtrees).
 
 ## Approach
 

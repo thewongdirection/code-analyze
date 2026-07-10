@@ -1,6 +1,6 @@
 ---
 name: code-analyze
-description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features, outlines the operating footprint (deployed files, required libraries, probable process/host identity, and any certificates/keys/signatures), and assesses how hard the app would be to replicate or feature-match. Deliver everything as a single professional evaluation report — one self-contained HTML plus a matching PDF — collating the findings, an embedded interactive call tree, and a methodology/reproduction appendix. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
+description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, code reviewer, and cybersecurity specialist. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and outlines the operating footprint (deployed files, required libraries, probable process/host identity, and any certificates/keys/signatures). Deliver everything as a single professional evaluation report — one self-contained HTML plus a matching PDF — collating the findings, an embedded interactive call tree, and a methodology/reproduction appendix. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
 ---
 
 # Code Analyze
@@ -115,7 +115,7 @@ Where crypto or networking is misused, the finding belongs in **both** this inve
 
 ## Deliverables
 
-The deliverable is **one single, self-contained HTML evaluation report and one matching PDF** — nothing else. Everything collates into that one document: the executive summary, metrics, architecture, capabilities, system-interaction surface, networking/crypto, dependencies, the interactive call tree, the findings table, the replication assessment, and a methodology/reproduction appendix. Do **not** ship a scattering of separate dashboard / call-graph / markdown files as the deliverable — one report, one PDF.
+The deliverable is **one single, self-contained HTML evaluation report and one matching PDF** — nothing else. Everything collates into that one document: the executive summary, metrics, architecture, capabilities, system-interaction surface, networking/crypto, dependencies, the interactive call tree, the findings table, and a methodology/reproduction appendix. Do **not** ship a scattering of separate dashboard / call-graph / markdown files as the deliverable — one report, one PDF.
 
 - **Build the single HTML from the bundled scaffold** `assets/report-template.html`. It already contains the styling, the section skeleton (with a table of contents), the embedded interactive **call tree** engine, and a **Methodology & Reproduction** appendix. Fill every `{{PLACEHOLDER}}` and `<!-- SLOT -->` with the real analysis, and replace the call-tree `GRAPH` object with the functions/edges you traced. Save as `CODE-ANALYSIS.html`.
 - **Render the matching PDF from that exact HTML** — never hand-build a separate PDF, so the two can never disagree:
@@ -183,14 +183,6 @@ The security section. Lead with a one-line risk posture. Then list findings, mos
   - **Other observations** — lower-confidence smells, dependency risk, hardening gaps.
 If you found nothing credible in a category, say so explicitly — "no hardcoded secrets found" is a useful result.
 
-## Replication & Feature-Match Assessment
-An engineer's estimate of how hard it would be to rebuild this app or match its features from scratch — the "could a competitor clone this?" question. Give:
-  - **Overall difficulty** — a rating (Trivial / Low / Moderate / High / Very High) and a rough effort band (e.g. "a weekend", "1–2 weeks for one dev", "a small team for months").
-  - **What's commodity** — the parts that are boilerplate or a solved problem (CLI parsing, CRUD, standard file formats, well-trodden library calls) and could be reproduced quickly.
-  - **What's hard / differentiated** — the genuine engineering: tricky algorithms, hard-won correctness (concurrency, real-time, numerical), non-obvious platform/API interop, performance work, accumulated edge-case handling, proprietary data or models, scale.
-  - **Expertise required** — the specific skills a cloner needs (e.g. "WASAPI/COM internals", "distributed systems", "ML"), since rare expertise is itself a moat.
-  - **Moat** — is there anything that actually prevents replication (network effects, data, patents, secret sauce), or is the barrier purely effort and know-how? Base this on the code, and be honest: many apps are mostly commodity glue, and saying so is the useful answer.
-
 ## Call Tree
 The embedded interactive call tree (see "The call tree" below) plus one sentence orienting the reader to it.
 
@@ -205,7 +197,7 @@ Adapt the depth to the repo — a 200-line utility doesn't need the same ceremon
 
 ## Building the report
 
-Fill `assets/report-template.html` and save it as `CODE-ANALYSIS.html`. It is one professional evaluation document — a cover band (project, risk badge, severity counts, source, coverage, date), a table of contents, and the twelve sections above, all self-contained (inline CSS/JS, no CDNs), theme-aware, and print-styled.
+Fill `assets/report-template.html` and save it as `CODE-ANALYSIS.html`. It is one professional evaluation document — a cover band (project, risk badge, severity counts, source, coverage, date), a table of contents, and the eleven sections above, all self-contained (inline CSS/JS, no CDNs), theme-aware, and print-styled.
 
 Non-negotiables:
 - **Fully self-contained** — inline everything; it must open from a local file with no network (these reports often cover offline/air-gapped or sensitive code).
