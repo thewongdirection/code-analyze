@@ -15,6 +15,12 @@ blended into one opaque number, plus a combined score for ranking:
     network IOCs and crypto primitives. Exact-match, not fuzzy - hostnames and
     mutex names either match or they don't.
 
+Each match also shows the prior record's `origin` tag (first-party / third-party
+/ malware, from its analysis block). When a target of one origin strongly matches
+a record of an incompatible origin - e.g. the user's own first-party code
+resembling a known-malware record - that cross-origin collision is called out
+explicitly, since it's the case a bare percentage would bury.
+
 Usage:
     python compare_fingerprint.py <fingerprint.json> <corpus-dir>
                                    [--top N] [--min-score F] [--json]
@@ -158,7 +164,10 @@ def main():
         result["project_name"] = analysis.get("project_name", fn)
         result["source"] = analysis.get("source", prior_fp.get("root", "unknown"))
         result["analyzed_at"] = analysis.get("analyzed_at", prior_fp.get("fingerprinted_at", "unknown"))
+        result["origin"] = analysis.get("origin", "unknown")
         matches.append(result)
+
+    new_origin = (new_fp.get("analysis") or {}).get("origin", "unknown")
 
     matches.sort(key=lambda r: r["combined"], reverse=True)
     matches = matches[:args.top]
@@ -173,9 +182,16 @@ def main():
         return 0
 
     for m in matches:
-        print(f"{m['project_name']}  (source: {m['source']}, analyzed: {m['analyzed_at']})")
+        print(f"{m['project_name']}  (origin: {m['origin']}, source: {m['source']}, analyzed: {m['analyzed_at']})")
         print(f"  Combined similarity: {m['combined']:.0%}   "
               f"[code: {m['code_similarity']:.0%}  |  metadata/IOC: {m['ioc_metadata_overlap']:.0%}]")
+        # Cross-origin collisions are the alarming case: e.g. the user's own
+        # first-party code strongly matching a known-malware record, or vice
+        # versa. Surface it loudly rather than leaving it as a bare percentage.
+        origins = {new_origin, m["origin"]}
+        if "malware" in origins and ("first-party" in origins or "third-party" in origins):
+            print(f"  ** CROSS-ORIGIN MATCH: this target (origin: {new_origin}) strongly "
+                  f"resembles a record tagged '{m['origin']}' - investigate before trusting either tag. **")
         if m["file_pairs"]:
             print(f"  Near-duplicate/high-overlap files ({len(m['file_pairs'])}):")
             for score, np_, pp_, kind in m["file_pairs"]:

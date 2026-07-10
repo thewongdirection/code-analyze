@@ -238,12 +238,12 @@
 
   <!-- ================= 11. SIMILARITY TO PRIOR ANALYSES ================= -->
   <h2 id="similarity">11. Similarity to Prior Analyses</h2>
-  <p class="muted" style="font-size:13px">Scored against a local, never-pushed corpus of every project this skill has analyzed before — code-level shingle matching plus metadata/IOC overlap, reported separately. {{SIMILARITY_NOTE}}</p>
-  <table><thead><tr><th>Prior project</th><th>Combined</th><th>Code similarity</th><th>Metadata/IOC overlap</th><th>Evidence</th></tr></thead><tbody>
+  <p class="muted" style="font-size:13px">Scored against a local, never-pushed corpus of every project this skill has analyzed before — code-level shingle matching plus metadata/IOC overlap, reported separately. Each prior record carries an <b>origin</b> tag (first-party / third-party / malware); a strong match across incompatible origins is flagged, not buried. {{SIMILARITY_NOTE}}</p>
+  <table><thead><tr><th>Prior project</th><th>Origin</th><th>Combined</th><th>Code similarity</th><th>Metadata/IOC overlap</th><th>Evidence</th></tr></thead><tbody>
     <!-- SLOT: one row per corpus match above threshold -->
-    <tr><td>project-name</td><td>NN%</td><td>NN%</td><td>NN%</td><td>near-duplicate files / shared IOCs / shared dependencies</td></tr>
+    <tr><td>project-name</td><td>malware</td><td>NN%</td><td>NN%</td><td>NN%</td><td>near-duplicate files / shared IOCs / shared dependencies</td></tr>
   </tbody></table>
-  <p class="muted" style="font-size:13px">If no prior project scored above threshold, say so plainly here (e.g. "first project of its kind in the local corpus") rather than leaving the section empty.</p>
+  <p class="muted" style="font-size:13px">State this run's own retention explicitly: which corpus file was written, where, and with what origin tag (e.g. "recorded as <code>quasar-20260710-ab12cd34.json</code> in the local corpus, origin=malware"). If no prior project scored above threshold, say so plainly (e.g. "first project of its kind in the local corpus") rather than leaving the section empty.</p>
 
   <!-- ================= 12. METHODOLOGY & REPRODUCTION ================= -->
   <h2 id="method">12. Methodology &amp; Reproduction</h2>
