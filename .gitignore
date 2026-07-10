@@ -5,3 +5,8 @@ CODE-ANALYSIS.md
 CODE-ANALYSIS.html
 __pycache__/
 *.pyc
+
+# Local similarity corpus (fingerprints of every analyzed project) - local
+# machine state, never pushed, regardless of where .corpus-location points.
+corpus/
+.corpus-location

@@ -1,6 +1,6 @@
 ---
 name: code-analyze
-description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, reverse engineer, code reviewer, and cybersecurity specialist with deep cross-platform expertise across Windows, Linux, Android, and iOS. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and outlines the operating footprint (deployed files, required libraries, probable process/host identity, and any certificates/keys/signatures). Deliver everything as a single professional evaluation report — one self-contained HTML plus a matching PDF — collating the findings, an embedded interactive call tree, and a methodology/reproduction appendix. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
+description: Given a GitHub repository (a URL or a local checkout), perform a thorough, whole-codebase analysis acting as a senior software engineer, reverse engineer, code reviewer, and cybersecurity specialist with deep cross-platform expertise across Windows, Linux, Android, and iOS. Study the files, explain what the project is and what it can actually do, highlight the key artifacts (entry points, core modules, notable capabilities), identify the key networking and cryptographic functionality (including network signatures / detection indicators), and produce a dedicated security section flagging potential vulnerabilities, hardcoded passwords or API keys in plaintext, and embedded credentials. It also names the core features and outlines the operating footprint (deployed files, required libraries, probable process/host identity, and any certificates/keys/signatures). It maintains a local, never-pushed history of every project it has analyzed and reports code- and metadata/IOC-level similarity between the current target and past ones. Deliver everything as a single professional evaluation report — one self-contained HTML plus a matching PDF — collating the findings, similarity to prior analyses, an embedded interactive call tree, and a methodology/reproduction appendix. Use this whenever the user points at a repo — a GitHub link, a cloned folder, "analyze this codebase", "review this repo", "what does this project do", "audit this code", "check this for secrets/vulnerabilities/crypto/networking", or hands over a project and asks what it is or whether it's safe — even if they don't use the word "analyze". Prefer this over an ad-hoc skim whenever the goal is understanding or vetting an entire project rather than editing a specific file.
 ---
 
 # Code Analyze
@@ -80,6 +80,34 @@ It walks the tree (skipping `.git`, `node_modules`, and other vendored/binary di
 
 The script is a *net*, not a verdict. It over-flags on purpose — test fixtures, example configs, and placeholder values will match. Your job is to triage each hit: is it a real, live-looking secret committed to the repo, an obvious dummy (`password = "changeme"`, `sk_test_...`), or a false positive? Report the real ones prominently with `file:line`; briefly note the placeholders; drop the noise. Also do your own reading — the script won't catch a credential built from concatenated strings or an unusual custom format.
 
+## Corpus & similarity history
+
+The skill maintains a **local history of every project it has analyzed**, and compares each new analysis against that history — so the report can say "this shares 40% of its code with `<prior-project>`" or "this reuses the same C2 hostname as `<prior-project>`," not just describe the current repo in isolation. This is genuinely useful for both due-diligence work (spotting reused/forked commodity code) and malware analysis (family attribution — recognizing the same builder, module, or infrastructure across samples is how real analysts link one sample to another).
+
+**First run: find or set up the corpus location.** Check whether `<skill-dir>/.corpus-location` exists:
+- If it exists, read it (single line, absolute local path) and use it as `<corpus-dir>` — no need to ask again.
+- If it does not exist, this is the first run: **ask the user** where to keep the local corpus. Default suggestion: `<skill-dir>/corpus` (this skill's own folder — already covered by `.gitignore`, so it's never committed even though the skill folder is a git repo that gets pushed). Accept any other absolute local path the user gives instead. Write their answer to `<skill-dir>/.corpus-location` and create the directory if it doesn't exist yet. Every later run just reads the file — the prompt happens once.
+
+**What's stored, and what deliberately is not.** Each analyzed project gets one JSON record in `<corpus-dir>`. It holds: per-file normalized-content hashes and MinHash sketches (one-way, not reversible to source), relative file paths and languages, dependency-manifest package *names*, and — once you've finished the report — the capability list, network IOCs, crypto primitives, risk level, and project name/source you determined by reading the code. It never holds full source code, and never holds actual secret values (only secret-hit *type* counts, if you choose to include them) — the corpus is local-only and reused across unrelated future targets, so it shouldn't become a second copy of anything sensitive. **Never commit or push the corpus**, regardless of where it lives — if the user ever points it inside a git-tracked folder other than the skill's own (which is already gitignored), add a `.gitignore` entry there too.
+
+**During the analysis pass**, after getting the local working copy and before (or alongside) the secret scan:
+
+1. **Fingerprint this project:**
+   ```
+   python "<skill-dir>/scripts/fingerprint_project.py" <repo-path> --out <scratchpad>/fingerprint.json
+   ```
+   This produces per-file and whole-project MinHash sketches (code-level similarity, robust to renamed constants/whitespace but not to full identifier renaming — a real, stated limitation, not a silent gap) plus best-effort dependency-manifest names. It never reads the corpus and never writes to it — pure measurement of the current repo.
+
+2. **Compare against the corpus** (skip this step, and say so, if the corpus directory is empty — that just means this is the first project in it):
+   ```
+   python "<skill-dir>/scripts/compare_fingerprint.py" <scratchpad>/fingerprint.json <corpus-dir>
+   ```
+   This reports, per prior project above threshold: a **combined score**, broken out into **code similarity** (project-level shingle Jaccard, plus specific near-duplicate/high-overlap file pairs — the "same proprietary algorithm/module reused" signal) and **metadata/IOC overlap** (shared dependency names; shared network IOCs/crypto primitives once those prior projects have their `analysis` block filled in). Report both components — don't collapse them into a single unexplained percentage; a high code-similarity score with zero IOC overlap (or vice versa) is itself informative and worth saying explicitly.
+
+3. **Fold the result into the report's "Similarity to Prior Analyses" section** (see Report structure below). Name the specific prior project(s), the evidence (which files overlap, which IOCs/dependencies are shared), and be honest when nothing meaningfully similar turned up.
+
+4. **After the report is finished**, add this project's own findings into its fingerprint's `"analysis"` object — `project_name`, `source` (the path or URL you analyzed), `analyzed_at` (today's date), `risk_level`, `capabilities` (short strings), `network_iocs` (flat list of hostnames/IPs/ports/user-agents/mutex names/etc. — the same material as the report's Network signatures line), and `crypto_primitives` (e.g. `"AES-ECB"`, `"custom XOR"`). Save the merged JSON into `<corpus-dir>` as `<slug>-<YYYYMMDD>-<shorthash>.json` (slug = the project name, lowercased, non-alphanumerics collapsed to `-`; shorthash = first 8 hex chars of a hash of the repo root path + fingerprint timestamp, to avoid collisions on repeat runs). This is what makes the history cumulative — skip this step only if the user explicitly asks not to retain a given run (e.g. a one-off or unusually sensitive target), and say plainly that you skipped it.
+
 ## What to look for in the security pass
 
 Think like an attacker reading the code. The high-value categories, roughly in order of how often they bite:
@@ -117,7 +145,7 @@ Where crypto or networking is misused, the finding belongs in **both** this inve
 
 ## Deliverables
 
-The deliverable is **one single, self-contained HTML evaluation report and one matching PDF** — nothing else. Everything collates into that one document: the executive summary, metrics, architecture, capabilities, system-interaction surface, networking/crypto, dependencies, the interactive call tree, the findings table, and a methodology/reproduction appendix. Do **not** ship a scattering of separate dashboard / call-graph / markdown files as the deliverable — one report, one PDF.
+The deliverable is **one single, self-contained HTML evaluation report and one matching PDF** — nothing else. Everything collates into that one document: the executive summary, metrics, architecture, capabilities, system-interaction surface, networking/crypto, dependencies, the interactive call tree, the findings table, similarity to prior analyses, and a methodology/reproduction appendix. Do **not** ship a scattering of separate dashboard / call-graph / markdown files as the deliverable — one report, one PDF.
 
 - **Build the single HTML from the bundled scaffold** `assets/report-template.html`. It already contains the styling, the section skeleton (with a table of contents), the embedded interactive **call tree** engine, and a **Methodology & Reproduction** appendix. Fill every `{{PLACEHOLDER}}` and `<!-- SLOT -->` with the real analysis, and replace the call-tree `GRAPH` object with the functions/edges you traced. Save as `CODE-ANALYSIS.html`.
 - **Render the matching PDF from that exact HTML** — never hand-build a separate PDF, so the two can never disagree:
@@ -187,11 +215,14 @@ The security section. Lead with a one-line risk posture. Then list findings, mos
   - **Other observations** — lower-confidence smells, dependency risk, hardening gaps.
 If you found nothing credible in a category, say so explicitly — "no hardcoded secrets found" is a useful result.
 
+## Similarity to Prior Analyses
+What the local corpus turned up (see "Corpus & similarity history" above). For each prior project scored above threshold: its name/source and when it was analyzed, the **combined score** broken into **code similarity** (project-level shingle match, plus specific near-duplicate/high-overlap file pairs — name the files) and **metadata/IOC overlap** (shared dependencies, hostnames, mutexes, crypto primitives — name them). If the corpus was empty or nothing scored above threshold, say so plainly — "first project of its kind in the local corpus" or "no meaningfully similar prior analysis" is a useful, honest result, not a gap.
+
 ## Call Tree
 The embedded interactive call tree (see "The call tree" below) plus one sentence orienting the reader to it.
 
 ## Methodology & Reproduction
-Enough for an engineer to re-derive every number and finding: the environment, the bundled tools used, the **exact commands** run (obtaining the code, `count_loc.py`, `scan_secrets.py`), the **coverage** (which files were read in full, what was excluded), and how to **build/verify the target** if it compiles or runs. This section is what makes the report a professional, reproducible evaluation rather than an opinion.
+Enough for an engineer to re-derive every number and finding: the environment, the bundled tools used, the **exact commands** run (obtaining the code, `count_loc.py`, `scan_secrets.py`, `fingerprint_project.py`, `compare_fingerprint.py`), the **coverage** (which files were read in full, what was excluded), and how to **build/verify the target** if it compiles or runs. This section is what makes the report a professional, reproducible evaluation rather than an opinion.
 
 ## Conclusion
 A few sentences: overall assessment, the single most important thing to act on, and honest caveats about coverage.
@@ -201,7 +232,7 @@ Adapt the depth to the repo — a 200-line utility doesn't need the same ceremon
 
 ## Building the report
 
-Fill `assets/report-template.html` and save it as `CODE-ANALYSIS.html`. It is one professional evaluation document — a cover band (project, risk badge, severity counts, source, coverage, date), a table of contents, and the eleven sections above, all self-contained (inline CSS/JS, no CDNs), theme-aware, and print-styled.
+Fill `assets/report-template.html` and save it as `CODE-ANALYSIS.html`. It is one professional evaluation document — a cover band (project, risk badge, severity counts, source, coverage, date), a table of contents, and the twelve sections above, all self-contained (inline CSS/JS, no CDNs), theme-aware, and print-styled.
 
 Non-negotiables:
 - **Fully self-contained** — inline everything; it must open from a local file with no network (these reports often cover offline/air-gapped or sensitive code).
